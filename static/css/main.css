@@ -405,7 +405,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: .91rem; backgro
 .pay-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(400px 200px at 90% 10%, rgba(255,255,255,.16), transparent 60%); }
 .pay-card.scheme-VISA { background: linear-gradient(135deg, #15206b, #2b32a0); }
 .pay-card.scheme-MASTERCARD { background: linear-gradient(135deg, #7a1f1f, #d06a16); }
-.pay-card.scheme-VERVE { background: linear-gradient(135deg, #0a3b2c, #0fa372); }
+.pay-card.scheme-GIROCARD { background: linear-gradient(135deg, #1a3a5c, #0e7490); }
 .pay-card .pc-number { font-family: var(--font-mono); font-size: 1.18rem; letter-spacing: .12em; position: relative; }
 .pay-card .pc-row { display: flex; justify-content: space-between; align-items: flex-end; font-size: .82rem; position: relative; }
 .pay-card.frozen { filter: grayscale(.9) brightness(.85); }

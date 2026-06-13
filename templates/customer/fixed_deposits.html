@@ -10,7 +10,7 @@
 <div class="grid grid-2">
   <div class="card">
     <h2 class="card-title">Open a fixed deposit</h2>
-    <p class="text-muted small">Lock funds away and earn guaranteed interest. Breaking a deposit early returns only the principal.</p>
+    <p class="text-muted small">Lock funds away and earn guaranteed interest. Breaking a deposit early returns only the principal — all interest is forfeited.</p>
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/_form.html" %}
@@ -25,25 +25,55 @@
         <span class="badge badge-{{ fd.status|lower }}">{{ fd.get_status_display }}</span>
       </div>
       <dl class="dl mt-2">
-        <dt>Reference</dt><dd class="mono">{{ fd.reference }}</dd>
+        <dt>Reference</dt><dd class="mono small">{{ fd.reference }}</dd>
         <dt>Tenor</dt><dd>{{ fd.tenor_days }} days ({{ fd.start_date }} → {{ fd.maturity_date }})</dd>
         {% if fd.status == "ACTIVE" %}
-          <dt>Expected payout</dt><dd>€{{ fd.expected_payout|floatformat:2|intcomma }}</dd>
+          <dt>Expected payout</dt><dd class="amount-credit">€{{ fd.expected_payout|floatformat:2|intcomma }}</dd>
+          <dt>Expected interest</dt><dd>€{{ fd.expected_interest|floatformat:2|intcomma }}</dd>
         {% else %}
           <dt>Paid out</dt><dd>€{{ fd.payout_amount|floatformat:2|intcomma }} on {{ fd.closed_at|date:"d M Y" }}</dd>
         {% endif %}
       </dl>
       {% if fd.status == "ACTIVE" %}
-      <form method="post" action="{% url 'banking:close_fixed_deposit' fd.pk %}" class="mt-2"
-            data-confirm="{% if fd.is_matured %}Withdraw this matured deposit?{% else %}Break this deposit early? You will forfeit all interest.{% endif %}">
-        {% csrf_token %}
+      <div class="flex mt-2">
         {% if fd.is_matured %}
-          <button type="submit" class="btn btn-accent btn-sm">Withdraw payout</button>
+        <button class="btn btn-accent btn-sm" data-modal-open="#fd-close-{{ fd.pk }}">Withdraw payout</button>
         {% else %}
-          <input type="hidden" name="force_break" value="1">
-          <button type="submit" class="btn btn-danger btn-sm">Break early (forfeit interest)</button>
+        <button class="btn btn-danger btn-sm" data-modal-open="#fd-close-{{ fd.pk }}">Break early (forfeit interest)</button>
         {% endif %}
-      </form>
+      </div>
+      <div class="modal-backdrop" id="fd-close-{{ fd.pk }}">
+        <div class="modal">
+          {% if fd.is_matured %}
+          <h3>Withdraw matured deposit</h3>
+          <p class="small text-muted">€{{ fd.expected_payout|floatformat:2|intcomma }} (principal + interest) will be credited to {{ fd.source_account.iban_formatted }}.</p>
+          {% else %}
+          <h3>Break deposit early?</h3>
+          <div class="banner banner-danger" style="margin-bottom:1rem"><span class="banner-icon">⚠️</span>
+            <div>You will receive only your principal of <strong>€{{ fd.principal|floatformat:2|intcomma }}</strong>. All accrued interest (€{{ fd.expected_interest|floatformat:2|intcomma }}) will be forfeited.</div></div>
+          {% endif %}
+          <form method="post" action="{% url 'banking:close_fixed_deposit' fd.pk %}">
+            {% csrf_token %}
+            {% if not fd.is_matured %}<input type="hidden" name="force_break" value="1">{% endif %}
+            <div class="form-group">
+              <label>Enter your transaction PIN to confirm</label>
+              <div class="pin-group" data-target="id_fd_pin_{{ fd.pk }}" data-len="4"></div>
+              <input type="hidden" name="pin" id="id_fd_pin_{{ fd.pk }}">
+            </div>
+            <div style="text-align:center;margin:.5rem 0 1rem">
+              <button type="button" class="pin-toggle" data-pin-toggle>Show PIN</button>
+            </div>
+            <div class="flex">
+              {% if fd.is_matured %}
+              <button type="submit" class="btn btn-accent">Withdraw €{{ fd.expected_payout|floatformat:2|intcomma }}</button>
+              {% else %}
+              <button type="submit" class="btn btn-danger">Break and accept loss</button>
+              {% endif %}
+              <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
       {% endif %}
     </div>
     {% empty %}

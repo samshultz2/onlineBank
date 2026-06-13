@@ -5,23 +5,37 @@
 <div class="card" style="max-width:760px">
   <div class="flex-between">
     <h2 class="card-title mb-0">Notifications</h2>
-    <form method="post" action="{% url 'notifications:mark_all_read' %}">
-      {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Mark all as read</button>
-    </form>
+    <div class="flex">
+      <form method="post" action="{% url 'notifications:mark_all_read' %}">
+        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Mark all read</button>
+      </form>
+      <form method="post" action="{% url 'notifications:delete_all_read' %}"
+            data-confirm="Delete all read notifications?">
+        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Delete read</button>
+      </form>
+    </div>
   </div>
   <div class="mt-2">
     {% for n in notifications %}
-    <div class="alert alert-{{ n.level }} alert-static" {% if not n.is_read %}style="font-weight:600"{% endif %}>
+    <div class="alert alert-{{ n.level }} alert-static" {% if not n.is_read %}style="border-left-width:4px"{% endif %}>
       <div class="flex-between">
-        <strong>{{ n.title }}</strong>
+        <div>
+          <strong>{{ n.title }}</strong>
+          {% if not n.is_read %}<span class="badge badge-active" style="margin-left:.4rem;font-size:.65rem">New</span>{% endif %}
+        </div>
         <span class="text-muted small">{{ n.created_at|date:"d M Y H:i" }}</span>
       </div>
-      <div class="small" style="font-weight:400">{{ n.message }}</div>
-      {% if not n.is_read %}
-      <form method="post" action="{% url 'notifications:mark_read' n.pk %}" class="mt-1">
-        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Mark read</button>
-      </form>
-      {% endif %}
+      <div class="small mt-1" style="font-weight:400">{{ n.message }}</div>
+      <div class="flex mt-1">
+        {% if not n.is_read %}
+        <form method="post" action="{% url 'notifications:mark_read' n.pk %}">
+          {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Mark read</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{% url 'notifications:delete_notification' n.pk %}">
+          {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+      </div>
     </div>
     {% empty %}
     <p class="empty-state">Nothing here yet — alerts about your money will appear here.</p>

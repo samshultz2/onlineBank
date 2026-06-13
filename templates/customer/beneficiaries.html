@@ -4,12 +4,24 @@
 {% block content %}
 <div class="grid grid-2">
   <div class="card">
+    {% if edit_target %}
+    <h2 class="card-title">Edit beneficiary</h2>
+    <form method="post" action="{% url 'banking:edit_beneficiary' edit_target.pk %}" novalidate>
+      {% csrf_token %}
+      {% include "partials/_form.html" %}
+      <div class="flex">
+        <button type="submit" class="btn btn-accent">Save changes</button>
+        <a href="{% url 'banking:beneficiaries' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+    {% else %}
     <h2 class="card-title">Add a beneficiary</h2>
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/_form.html" %}
       <button type="submit" class="btn btn-accent">Add beneficiary</button>
     </form>
+    {% endif %}
   </div>
   <div class="card">
     <h2 class="card-title">Saved beneficiaries</h2>
@@ -19,11 +31,16 @@
         <tbody>
           {% for b in beneficiaries %}
           <tr>
-            <td>{{ b.nickname|default:b.name }}<div class="text-muted small">{{ b.name }}{% if b.bic %} · {{ b.bic }}{% endif %}</div></td>
+            <td>
+              <strong>{{ b.nickname|default:b.name }}</strong>
+              {% if b.nickname %}<div class="text-muted small">{{ b.name }}{% if b.bic %} · {{ b.bic }}{% endif %}</div>{% endif %}
+              {% if b.bank_name %}<div class="text-muted small">{{ b.bank_name }}</div>{% endif %}
+            </td>
             <td class="mono small">{{ b.iban_formatted }}</td>
-            <td class="text-right">
+            <td class="text-right" style="white-space:nowrap">
               <a class="btn btn-sm btn-accent" href="{% url 'banking:transfer' %}?to={{ b.iban }}">Send</a>
-              <form method="post" action="{% url 'banking:delete_beneficiary' b.pk %}" class="inline-form" data-confirm="Remove this beneficiary?">
+              <a class="btn btn-sm btn-outline" href="{% url 'banking:edit_beneficiary' b.pk %}">Edit</a>
+              <form method="post" action="{% url 'banking:delete_beneficiary' b.pk %}" class="inline-form" data-confirm="Remove {{ b.name }} from your beneficiaries?">
                 {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger">Remove</button>
               </form>
             </td>

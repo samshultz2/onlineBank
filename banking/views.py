@@ -292,6 +292,16 @@ def close_fixed_deposit(request, pk):
     fd = get_object_or_404(FixedDeposit, pk=pk, user=request.user)
     if request.method == "POST":
         force_break = request.POST.get("force_break") == "1"
+        # Early break is irreversible (interest forfeited) — always require PIN.
+        # Matured payout also requires PIN since it moves money.
+        pin = request.POST.get("pin", "")
+        profile = request.user.profile
+        if profile.pin_is_locked:
+            messages.error(request, "Your transaction PIN is temporarily locked.")
+            return redirect("banking:fixed_deposits")
+        if not profile.verify_pin(pin):
+            messages.error(request, "Incorrect transaction PIN — fixed deposit not closed.")
+            return redirect("banking:fixed_deposits")
         try:
             services.close_fixed_deposit(
                 fd, initiated_by=request.user, force_break=force_break
@@ -299,7 +309,7 @@ def close_fixed_deposit(request, pk):
         except services.TransactionError as exc:
             messages.error(request, str(exc))
         else:
-            action = "broken early" if force_break and not fd.is_matured else "matured"
+            action = "broken early" if force_break else "matured"
             log_action(request.user, "FIXED_DEPOSIT_CLOSE",
                        f"FD {fd.reference} {action}", request)
             messages.success(request, "Fixed deposit closed and funds credited.")
@@ -313,18 +323,38 @@ def beneficiaries(request):
         if form.is_valid():
             beneficiary = form.save(commit=False)
             beneficiary.user = request.user
-            if request.user.beneficiaries.filter(
-                account_number=beneficiary.account_number
-            ).exists():
-                messages.error(request, "That beneficiary already exists.")
+            if request.user.beneficiaries.filter(iban=beneficiary.iban).exists():
+                messages.error(request, "That IBAN is already saved as a beneficiary.")
             else:
                 beneficiary.save()
+                log_action(request.user, "BENEFICIARY_ADD",
+                           f"Added {beneficiary.name} ({beneficiary.iban})", request)
                 messages.success(request, "Beneficiary added.")
                 return redirect("banking:beneficiaries")
     else:
         form = BeneficiaryForm()
     return render(request, "customer/beneficiaries.html", {
         "form": form,
+        "beneficiaries": request.user.beneficiaries.all(),
+    })
+
+
+@customer_required
+def edit_beneficiary(request, pk):
+    beneficiary = get_object_or_404(Beneficiary, pk=pk, user=request.user)
+    if request.method == "POST":
+        form = BeneficiaryForm(request.POST, instance=beneficiary)
+        if form.is_valid():
+            form.save()
+            log_action(request.user, "BENEFICIARY_EDIT",
+                       f"Edited {beneficiary.name} ({beneficiary.iban})", request)
+            messages.success(request, "Beneficiary updated.")
+            return redirect("banking:beneficiaries")
+    else:
+        form = BeneficiaryForm(instance=beneficiary)
+    return render(request, "customer/beneficiaries.html", {
+        "form": form,
+        "edit_target": beneficiary,
         "beneficiaries": request.user.beneficiaries.all(),
     })
 

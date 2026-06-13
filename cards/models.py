@@ -9,8 +9,8 @@ from banking.models import BankAccount
 
 
 def generate_card_number(scheme):
-    prefixes = {"VISA": "4", "MASTERCARD": "5399", "VERVE": "5061"}
-    prefix = prefixes.get(scheme, "5061")
+    prefixes = {"VISA": "4", "MASTERCARD": "5399", "GIROCARD": "6705"}
+    prefix = prefixes.get(scheme, "6705")
     while True:
         body = "".join(secrets.choice("0123456789") for _ in range(16 - len(prefix)))
         number = f"{prefix}{body}"
@@ -20,7 +20,7 @@ def generate_card_number(scheme):
 
 class Card(models.Model):
     class Scheme(models.TextChoices):
-        VERVE = "VERVE", "Verve"
+        GIROCARD = "GIROCARD", "Girocard"
         VISA = "VISA", "Visa"
         MASTERCARD = "MASTERCARD", "Mastercard"
 

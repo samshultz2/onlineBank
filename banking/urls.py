@@ -16,5 +16,6 @@ urlpatterns = [
     path("fixed-deposits/", views.fixed_deposits, name="fixed_deposits"),
     path("fixed-deposits/<int:pk>/close/", views.close_fixed_deposit, name="close_fixed_deposit"),
     path("beneficiaries/", views.beneficiaries, name="beneficiaries"),
+    path("beneficiaries/<int:pk>/edit/", views.edit_beneficiary, name="edit_beneficiary"),
     path("beneficiaries/<int:pk>/delete/", views.delete_beneficiary, name="delete_beneficiary"),
 ]

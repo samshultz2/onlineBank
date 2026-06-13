@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
+from django.views.decorators.http import require_POST
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
@@ -88,6 +89,7 @@ def login_view(request):
     return render(request, "auth/login.html", {"form": form})
 
 
+@require_POST
 def logout_view(request):
     if request.user.is_authenticated:
         log_action(request.user, "LOGOUT", "User logged out", request)
