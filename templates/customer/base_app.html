@@ -10,6 +10,7 @@
       <a class="nav-link {% if request.resolver_match.url_name == 'transfer' %}active{% endif %}" href="{% url 'banking:transfer' %}">💸 Transfer money</a>
       <a class="nav-link {% if request.resolver_match.url_name == 'pay_bills' %}active{% endif %}" href="{% url 'banking:pay_bills' %}">🧾 Pay bills</a>
       <a class="nav-link {% if request.resolver_match.url_name == 'beneficiaries' %}active{% endif %}" href="{% url 'banking:beneficiaries' %}">👥 Beneficiaries</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'standing_orders' %}active{% endif %}" href="{% url 'banking:standing_orders' %}">🔁 Standing orders</a>
       <div class="nav-section">Grow &amp; borrow</div>
       <a class="nav-link {% if request.resolver_match.url_name == 'fixed_deposits' %}active{% endif %}" href="{% url 'banking:fixed_deposits' %}">📈 Fixed deposits</a>
       <a class="nav-link {% if request.resolver_match.namespace == 'loans' %}active{% endif %}" href="{% url 'loans:list' %}">🤝 Loans</a>

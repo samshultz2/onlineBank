@@ -43,6 +43,7 @@
   <div class="flex-between">
     <h2 class="card-title mb-0">Statement</h2>
     <div class="flex no-print">
+      <a class="btn btn-sm btn-outline" href="{% url 'banking:download_statement_pdf' account.account_number %}?{{ request.GET.urlencode }}">Download PDF</a>
       <a class="btn btn-sm btn-outline" href="{% url 'banking:download_statement' account.account_number %}?{{ request.GET.urlencode }}">Download CSV</a>
       <button class="btn btn-sm" onclick="window.print()">Print</button>
     </div>

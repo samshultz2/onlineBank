@@ -5,7 +5,16 @@ from django.conf import settings
 
 from accounts.forms import StyledFormMixin
 
-from .models import BankAccount, Beneficiary, Biller, iban_is_valid, normalise_iban
+from django.utils import timezone
+
+from .models import (
+    BankAccount,
+    Beneficiary,
+    Biller,
+    StandingOrder,
+    iban_is_valid,
+    normalise_iban,
+)
 
 
 class AccountChoiceMixin(StyledFormMixin):
@@ -140,3 +149,97 @@ class StatementFilterForm(StyledFormMixin, forms.Form):
         required=False,
         choices=[("", "All"), ("CREDIT", "Credits"), ("DEBIT", "Debits")],
     )
+    min_amount = forms.DecimalField(
+        required=False, min_value=Decimal("0.00"), max_digits=14, decimal_places=2,
+        label="Min €", widget=forms.NumberInput(attrs={"step": "0.01"}),
+    )
+    max_amount = forms.DecimalField(
+        required=False, min_value=Decimal("0.00"), max_digits=14, decimal_places=2,
+        label="Max €", widget=forms.NumberInput(attrs={"step": "0.01"}),
+    )
+    query = forms.CharField(
+        required=False, max_length=100, label="Search",
+        widget=forms.TextInput(attrs={
+            "placeholder": "Description, reference or counterparty",
+        }),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        start, end = cleaned.get("start_date"), cleaned.get("end_date")
+        if start and end and start > end:
+            self.add_error("end_date", "End date cannot be before the start date.")
+        lo, hi = cleaned.get("min_amount"), cleaned.get("max_amount")
+        if lo is not None and hi is not None and lo > hi:
+            self.add_error("max_amount", "Maximum amount cannot be below the minimum.")
+        return cleaned
+
+    def apply(self, transactions):
+        """Apply the cleaned filters to a Transaction queryset."""
+        data = self.cleaned_data
+        if data.get("start_date"):
+            transactions = transactions.filter(created_at__date__gte=data["start_date"])
+        if data.get("end_date"):
+            transactions = transactions.filter(created_at__date__lte=data["end_date"])
+        if data.get("direction"):
+            transactions = transactions.filter(direction=data["direction"])
+        if data.get("min_amount") is not None:
+            transactions = transactions.filter(amount__gte=data["min_amount"])
+        if data.get("max_amount") is not None:
+            transactions = transactions.filter(amount__lte=data["max_amount"])
+        if data.get("query"):
+            from django.db.models import Q
+
+            q = data["query"]
+            transactions = transactions.filter(
+                Q(description__icontains=q)
+                | Q(reference__icontains=q)
+                | Q(counterparty_name__icontains=q)
+                | Q(counterparty_account__icontains=q)
+            )
+        return transactions
+
+
+class StandingOrderForm(AccountChoiceMixin, forms.Form):
+    source_account = forms.ModelChoiceField(
+        queryset=BankAccount.objects.none(), label="Pay from"
+    )
+    beneficiary_name = forms.CharField(max_length=150, label="Beneficiary name")
+    destination_iban = IbanField(label="Beneficiary IBAN")
+    amount = forms.DecimalField(
+        min_value=Decimal("1.00"), max_digits=14, decimal_places=2,
+        label="Amount (€)", widget=forms.NumberInput(attrs={"step": "0.01"}),
+    )
+    narration = forms.CharField(
+        max_length=140, required=False, label="Payment reference"
+    )
+    frequency = forms.ChoiceField(choices=StandingOrder.Frequency.choices)
+    start_date = forms.DateField(
+        label="First payment date", widget=forms.DateInput(attrs={"type": "date"})
+    )
+    end_date = forms.DateField(
+        required=False, label="End date (optional)",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    max_executions = forms.IntegerField(
+        required=False, min_value=1, label="Number of payments (optional)",
+        help_text="Leave blank to keep paying until you cancel or the end date.",
+    )
+    pin = forms.RegexField(
+        regex=r"^\d{4}$", label="Transaction PIN",
+        widget=forms.PasswordInput(attrs={"inputmode": "numeric", "maxlength": "4"}),
+        error_messages={"invalid": "PIN must be exactly 4 digits."},
+    )
+
+    def clean_start_date(self):
+        start = self.cleaned_data["start_date"]
+        if start < timezone.localdate():
+            raise forms.ValidationError("The first payment date cannot be in the past.")
+        return start
+
+    def clean(self):
+        cleaned = super().clean()
+        start, end = cleaned.get("start_date"), cleaned.get("end_date")
+        if start and end and end < start:
+            self.add_error("end_date", "The end date must be after the first payment.")
+        return cleaned

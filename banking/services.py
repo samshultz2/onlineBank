@@ -16,6 +16,7 @@ from .models import (
     BankAccount,
     BillPayment,
     FixedDeposit,
+    StandingOrder,
     Transaction,
     generate_reference,
     normalise_iban,
@@ -402,6 +403,86 @@ def approve_account(account, *, initiated_by, note=""):
         level="success",
     )
     return account
+
+
+@db_transaction.atomic
+def execute_standing_order(order, *, on_date=None):
+    """Run one occurrence of a standing order: attempt the transfer, then move
+    the schedule forward. A failed attempt (e.g. insufficient funds) is recorded
+    and the customer is notified, and the occurrence is skipped — exactly as a
+    real bank treats a missed standing-order payment.
+
+    Returns the created debit Transaction on success, or None on a skipped run.
+    """
+    order = StandingOrder.objects.select_for_update().get(pk=order.pk)
+    if order.status != StandingOrder.Status.ACTIVE:
+        return None
+
+    when = on_date or timezone.localdate()
+    narration = order.narration or f"Standing order to {order.beneficiary_name}"
+    entry = None
+    try:
+        entry = transfer(
+            order.source_account,
+            order.destination_iban,
+            order.amount,
+            narration=narration,
+            initiated_by=order.user,
+        )
+    except TransactionError as exc:
+        order.last_error = str(exc)[:255]
+        notify(
+            order.user, "Standing order failed",
+            f"Your scheduled payment of €{order.amount:,.2f} to "
+            f"{order.beneficiary_name} could not be made: {exc} "
+            f"The payment was skipped.",
+            level="danger",
+        )
+    else:
+        order.last_error = ""
+        order.executions_count += 1
+
+    order.last_run_at = timezone.now()
+    order.advance_schedule()
+    order.save(update_fields=[
+        "last_error", "executions_count", "last_run_at",
+        "next_run_date", "status", "updated_at",
+    ])
+    return entry
+
+
+def process_due_standing_orders(as_of=None, *, stdout=None):
+    """Execute every active standing order whose next run date has arrived.
+
+    Each order runs in its own transaction so one failure never blocks the rest.
+    Designed to be called once a day from a cron job / systemd timer.
+    """
+    as_of = as_of or timezone.localdate()
+    due = StandingOrder.objects.filter(
+        status=StandingOrder.Status.ACTIVE, next_run_date__lte=as_of
+    ).order_by("next_run_date")
+
+    processed = succeeded = failed = 0
+    # Re-fetch each order by id so a long catch-up run cannot operate on stale rows.
+    for order_id in list(due.values_list("pk", flat=True)):
+        order = StandingOrder.objects.get(pk=order_id)
+        # Catch up on any back-dated runs (e.g. if the worker was down for days).
+        while (
+            order.status == StandingOrder.Status.ACTIVE
+            and order.next_run_date <= as_of
+        ):
+            run_date = order.next_run_date
+            entry = execute_standing_order(order, on_date=run_date)
+            processed += 1
+            if entry is not None:
+                succeeded += 1
+            else:
+                failed += 1
+            order.refresh_from_db()
+        if stdout:
+            stdout(f"Processed standing order #{order_id} ({order.beneficiary_name}).")
+
+    return {"processed": processed, "succeeded": succeeded, "failed": failed}
 
 
 @db_transaction.atomic

@@ -1,0 +1,81 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}Standing orders — SecureTrust Bank{% endblock %}
+{% block page_title %}Standing orders{% endblock %}
+{% block content %}
+{% if not form.source_account.field.queryset %}
+<div class="banner banner-warning"><span class="banner-icon">⚠️</span>
+  <div>You have no active accounts to pay from. An account must be approved and active
+  before you can set up a standing order.</div></div>
+{% endif %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2 class="card-title">🔁 New standing order</h2>
+    <p class="text-muted small">Schedule a recurring SEPA transfer. We'll pay it automatically
+       on each due date — you can pause or cancel it any time.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form.visible_fields %}
+        <div class="form-group">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-accent btn-block">Create standing order</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Your standing orders</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Beneficiary</th><th>Schedule</th><th class="text-right">Amount</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for o in orders %}
+          <tr>
+            <td>
+              <strong>{{ o.beneficiary_name }}</strong>
+              <div class="mono small text-muted">{{ o.destination_iban_formatted }}</div>
+              {% if o.narration %}<div class="text-muted small">{{ o.narration }}</div>{% endif %}
+              {% if o.last_error %}<div class="form-error small">Last attempt: {{ o.last_error }}</div>{% endif %}
+            </td>
+            <td class="small">
+              {{ o.get_frequency_display }}
+              <div class="text-muted">
+                {% if o.status == "ACTIVE" %}Next: {{ o.next_run_date|date:"d M Y" }}
+                {% elif o.status == "PAUSED" %}Paused
+                {% else %}{{ o.get_status_display }}{% endif %}
+              </div>
+              {% if o.max_executions %}<div class="text-muted">{{ o.executions_count }}/{{ o.max_executions }} paid</div>
+              {% elif o.executions_count %}<div class="text-muted">{{ o.executions_count }} paid</div>{% endif %}
+              {% if o.end_date %}<div class="text-muted">Ends {{ o.end_date|date:"d M Y" }}</div>{% endif %}
+            </td>
+            <td class="text-right">€{{ o.amount|floatformat:2|intcomma }}</td>
+            <td><span class="badge badge-{{ o.status|lower }}">{{ o.get_status_display }}</span></td>
+            <td class="text-right" style="white-space:nowrap">
+              {% if o.status == "ACTIVE" or o.status == "PAUSED" %}
+                <form method="post" action="{% url 'banking:toggle_standing_order' o.pk %}" class="inline-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline">
+                    {% if o.status == "ACTIVE" %}Pause{% else %}Resume{% endif %}
+                  </button>
+                </form>
+                <form method="post" action="{% url 'banking:cancel_standing_order' o.pk %}" class="inline-form"
+                      data-confirm="Cancel this standing order? This cannot be undone.">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="empty-state">No standing orders yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

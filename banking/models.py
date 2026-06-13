@@ -371,3 +371,98 @@ class BillPayment(models.Model):
 
     def __str__(self):
         return f"{self.biller} - {self.amount}"
+
+
+def _add_months(d, months):
+    """Add a number of calendar months to a date, clamping the day to the last
+    valid day of the target month (e.g. 31 Jan + 1 month -> 28/29 Feb)."""
+    import calendar
+
+    month_index = d.month - 1 + months
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return d.replace(year=year, month=month, day=day)
+
+
+class StandingOrder(models.Model):
+    """A recurring SEPA credit transfer the customer schedules to run
+    automatically on a fixed interval (weekly, monthly, etc.)."""
+
+    class Frequency(models.TextChoices):
+        WEEKLY = "WEEKLY", "Weekly"
+        FORTNIGHTLY = "FORTNIGHTLY", "Every two weeks"
+        MONTHLY = "MONTHLY", "Monthly"
+        QUARTERLY = "QUARTERLY", "Every three months"
+        YEARLY = "YEARLY", "Yearly"
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        PAUSED = "PAUSED", "Paused"
+        COMPLETED = "COMPLETED", "Completed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="standing_orders"
+    )
+    source_account = models.ForeignKey(
+        BankAccount, on_delete=models.PROTECT, related_name="standing_orders"
+    )
+    beneficiary_name = models.CharField(max_length=150)
+    destination_iban = models.CharField("Beneficiary IBAN", max_length=34)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    narration = models.CharField(max_length=140, blank=True)
+    frequency = models.CharField(max_length=12, choices=Frequency.choices)
+    start_date = models.DateField()
+    next_run_date = models.DateField(db_index=True)
+    end_date = models.DateField(
+        null=True, blank=True,
+        help_text="Optional. Leave blank to run until cancelled or the run cap is reached.",
+    )
+    max_executions = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Optional. Stop automatically after this many payments.",
+    )
+    executions_count = models.PositiveIntegerField(default=0)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.ACTIVE
+    )
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["next_run_date", "-created_at"]
+
+    def __str__(self):
+        return f"Standing order €{self.amount} to {self.beneficiary_name} ({self.get_frequency_display()})"
+
+    @property
+    def destination_iban_formatted(self):
+        return format_iban(self.destination_iban)
+
+    @property
+    def is_active(self):
+        return self.status == self.Status.ACTIVE
+
+    def advance_schedule(self):
+        """Move ``next_run_date`` forward by one interval and mark the order
+        completed if it has reached its end date or execution cap."""
+        step = {
+            self.Frequency.WEEKLY: ("days", 7),
+            self.Frequency.FORTNIGHTLY: ("days", 14),
+            self.Frequency.MONTHLY: ("months", 1),
+            self.Frequency.QUARTERLY: ("months", 3),
+            self.Frequency.YEARLY: ("months", 12),
+        }[self.frequency]
+        unit, value = step
+        if unit == "days":
+            self.next_run_date = self.next_run_date + timezone.timedelta(days=value)
+        else:
+            self.next_run_date = _add_months(self.next_run_date, value)
+
+        if self.max_executions and self.executions_count >= self.max_executions:
+            self.status = self.Status.COMPLETED
+        elif self.end_date and self.next_run_date > self.end_date:
+            self.status = self.Status.COMPLETED

@@ -70,6 +70,18 @@ DATABASES = {
     }
 }
 
+# In production the deploy script provisions PostgreSQL and sets these env vars.
+if os.environ.get("DJANGO_DB_NAME"):
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ["DJANGO_DB_NAME"],
+        "USER": os.environ.get("DJANGO_DB_USER", "onlinebank"),
+        "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", ""),
+        "HOST": os.environ.get("DJANGO_DB_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("DJANGO_DB_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.environ.get("DJANGO_DB_CONN_MAX_AGE", "60")),
+    }
+
 AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -97,11 +109,22 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Emails are printed to the console in development; swap for SMTP in production.
+# Emails are printed to the console in development; the deploy script swaps in
+# SMTP for production by setting DJANGO_EMAIL_BACKEND and the EMAIL_* env vars.
 EMAIL_BACKEND = os.environ.get(
     "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
-DEFAULT_FROM_EMAIL = "no-reply@securetrustbank.com"
+EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("DJANGO_EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("DJANGO_EMAIL_USE_TLS", "1") == "1"
+EMAIL_USE_SSL = os.environ.get("DJANGO_EMAIL_USE_SSL", "0") == "1"
+EMAIL_TIMEOUT = int(os.environ.get("DJANGO_EMAIL_TIMEOUT", "15"))
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DJANGO_DEFAULT_FROM_EMAIL", "no-reply@securetrustbank.com"
+)
+SERVER_EMAIL = os.environ.get("DJANGO_SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
 # Sessions: 30 minute idle timeout (reset on every request).
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
@@ -131,6 +154,13 @@ CSRF_FAILURE_VIEW = "accounts.views.csrf_failure"
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# When deployed behind nginx (which terminates TLS from Cloudflare), trust the
+# X-Forwarded-Proto header so Django knows the original request was HTTPS.
+# nginx is configured to set this header from the real client connection.
+if os.environ.get("DJANGO_BEHIND_PROXY", "0") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 _INSECURE_SECRET_KEY = "django-insecure-change-me-in-production-9f8a7b6c5d4e3f2a1b0c"
 

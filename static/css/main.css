@@ -219,8 +219,8 @@ input[type="date"].form-control, input[type="datetime-local"].form-control { min
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px currentColor; opacity: .25; }
 .badge { position: relative; }
 .badge-success, .badge-active, .badge-verified, .badge-completed, .badge-paid, .badge-resolved { background: var(--success-soft); color: #07603f; }
-.badge-warning, .badge-pending, .badge-frozen, .badge-requested, .badge-in_progress, .badge-approved { background: var(--warning-soft); color: #8a5606; }
-.badge-danger, .badge-rejected, .badge-blocked, .badge-failed, .badge-closed, .badge-reversed { background: var(--danger-soft); color: #a31f33; }
+.badge-warning, .badge-pending, .badge-frozen, .badge-requested, .badge-in_progress, .badge-approved, .badge-paused { background: var(--warning-soft); color: #8a5606; }
+.badge-danger, .badge-rejected, .badge-blocked, .badge-failed, .badge-closed, .badge-reversed, .badge-cancelled { background: var(--danger-soft); color: #a31f33; }
 .badge-muted, .badge-dormant, .badge-matured, .badge-broken, .badge-expired, .badge-open { background: #eef1f6; color: #4a566f; }
 .badge-info { background: var(--info-soft); color: #1d44b0; }
 

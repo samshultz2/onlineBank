@@ -17,6 +17,7 @@ from .forms import (
     BeneficiaryForm,
     BillPaymentForm,
     FixedDepositForm,
+    StandingOrderForm,
     StatementFilterForm,
     TransferForm,
 )
@@ -24,7 +25,9 @@ from .models import (
     BankAccount,
     Beneficiary,
     FixedDeposit,
+    StandingOrder,
     Transaction,
+    format_iban,
     iban_is_valid,
     normalise_iban,
 )
@@ -100,16 +103,7 @@ def account_detail(request, account_number):
     form = StatementFilterForm(request.GET or None)
     transactions = account.transactions.all()
     if form.is_valid():
-        if form.cleaned_data.get("start_date"):
-            transactions = transactions.filter(
-                created_at__date__gte=form.cleaned_data["start_date"]
-            )
-        if form.cleaned_data.get("end_date"):
-            transactions = transactions.filter(
-                created_at__date__lte=form.cleaned_data["end_date"]
-            )
-        if form.cleaned_data.get("direction"):
-            transactions = transactions.filter(direction=form.cleaned_data["direction"])
+        transactions = form.apply(transactions)
 
     paginator = Paginator(transactions, 20)
     page = paginator.get_page(request.GET.get("page"))
@@ -128,14 +122,7 @@ def download_statement(request, account_number):
     transactions = account.transactions.all().order_by("created_at")
     form = StatementFilterForm(request.GET or None)
     if form.is_valid():
-        if form.cleaned_data.get("start_date"):
-            transactions = transactions.filter(
-                created_at__date__gte=form.cleaned_data["start_date"]
-            )
-        if form.cleaned_data.get("end_date"):
-            transactions = transactions.filter(
-                created_at__date__lte=form.cleaned_data["end_date"]
-            )
+        transactions = form.apply(transactions)
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = (
@@ -160,6 +147,122 @@ def download_statement(request, account_number):
     log_action(request.user, "STATEMENT_DOWNLOAD",
                f"Statement CSV for {account.account_number}", request)
     return response
+
+
+@customer_required
+def download_statement_pdf(request, account_number):
+    """Render the account statement as a branded PDF document."""
+    account = get_object_or_404(
+        BankAccount, account_number=account_number, user=request.user
+    )
+    transactions = account.transactions.all().order_by("created_at")
+    form = StatementFilterForm(request.GET or None)
+    if form.is_valid():
+        transactions = form.apply(transactions)
+
+    pdf_bytes = _build_statement_pdf(request, account, list(transactions))
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="statement_{account.account_number}.pdf"'
+    )
+    log_action(request.user, "STATEMENT_DOWNLOAD",
+               f"Statement PDF for {account.account_number}", request)
+    return response
+
+
+def _build_statement_pdf(request, account, transactions):
+    """Produce the statement PDF bytes using reportlab."""
+    from io import BytesIO
+
+    from django.conf import settings
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    )
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        topMargin=18 * mm, bottomMargin=18 * mm,
+        leftMargin=16 * mm, rightMargin=16 * mm,
+        title=f"Statement {account.account_number}",
+    )
+    styles = getSampleStyleSheet()
+    brand = ParagraphStyle(
+        "brand", parent=styles["Title"], fontSize=20, textColor=colors.HexColor("#0a1733"),
+    )
+    muted = ParagraphStyle(
+        "muted", parent=styles["Normal"], fontSize=8.5, textColor=colors.HexColor("#64748b"),
+    )
+    cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8.5, leading=11)
+
+    owner = account.user.get_full_name() or account.user.email
+    generated = timezone.localtime(timezone.now()).strftime("%d %b %Y %H:%M")
+    opening = transactions[0].balance_after - transactions[0].signed_amount if transactions else account.balance
+    closing = transactions[-1].balance_after if transactions else account.balance
+    total_in = sum((t.amount for t in transactions if t.direction == Transaction.Direction.CREDIT), Decimal("0.00"))
+    total_out = sum((t.amount for t in transactions if t.direction == Transaction.Direction.DEBIT), Decimal("0.00"))
+
+    elements = [
+        Paragraph(f"{settings.BANK_LEGAL_NAME}", brand),
+        Paragraph(f"BIC {settings.BANK_BIC} · Account statement", muted),
+        Spacer(1, 8),
+        Paragraph(
+            f"<b>{owner}</b><br/>IBAN {account.iban_formatted}<br/>"
+            f"{account.account_type.name} · {account.get_status_display()}<br/>"
+            f"Generated {generated}",
+            cell,
+        ),
+        Spacer(1, 6),
+        Paragraph(
+            f"Opening balance €{opening:,.2f} &nbsp;·&nbsp; Money in €{total_in:,.2f} "
+            f"&nbsp;·&nbsp; Money out €{total_out:,.2f} &nbsp;·&nbsp; "
+            f"<b>Closing balance €{closing:,.2f}</b>",
+            muted,
+        ),
+        Spacer(1, 10),
+    ]
+
+    data = [["Date", "Reference", "Description", "Debit", "Credit", "Balance"]]
+    for t in transactions:
+        debit = f"{t.amount:,.2f}" if t.direction == Transaction.Direction.DEBIT else ""
+        credit = f"{t.amount:,.2f}" if t.direction == Transaction.Direction.CREDIT else ""
+        data.append([
+            Paragraph(timezone.localtime(t.created_at).strftime("%d/%m/%Y<br/>%H:%M"), cell),
+            Paragraph(t.reference, cell),
+            Paragraph(t.description or t.get_channel_display(), cell),
+            debit, credit, f"{t.balance_after:,.2f}",
+        ])
+    if len(data) == 1:
+        data.append([Paragraph("No transactions for the selected period.", cell), "", "", "", "", ""])
+
+    table = Table(data, colWidths=[22 * mm, 34 * mm, 56 * mm, 20 * mm, 20 * mm, 22 * mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0a1733")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (3, 0), (5, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#0a1733")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph(
+        f"{settings.BANK_LEGAL_NAME} · BIC {settings.BANK_BIC}. This statement was "
+        f"generated electronically and is valid without a signature. Eligible deposits "
+        f"are protected up to €100,000 under the statutory deposit guarantee scheme.",
+        muted,
+    ))
+
+    doc.build(elements)
+    return buffer.getvalue()
 
 
 @customer_required
@@ -369,3 +472,100 @@ def delete_beneficiary(request, pk):
     beneficiary.delete()
     messages.success(request, "Beneficiary removed.")
     return redirect("banking:beneficiaries")
+
+
+@pin_setup_required
+def standing_orders(request):
+    """List the customer's standing orders and create new ones."""
+    if request.method == "POST":
+        form = StandingOrderForm(request.user, request.POST)
+        if form.is_valid() and _verify_pin_or_error(request, form):
+            data = form.cleaned_data
+            source = data["source_account"]
+            destination_iban = data["destination_iban"]
+
+            # Validate the destination the same way a one-off transfer would,
+            # so a customer cannot schedule payments to a non-existent or
+            # non-transactable account.
+            if destination_iban == source.iban:
+                form.add_error("destination_iban", "You cannot set up a standing order to the same account.")
+            else:
+                try:
+                    dest = BankAccount.objects.get(iban=destination_iban)
+                except BankAccount.DoesNotExist:
+                    dest = None
+                if dest is None or dest.status != BankAccount.Status.ACTIVE:
+                    form.add_error("destination_iban", "No active account was found for that IBAN.")
+
+            if not form.errors:
+                order = StandingOrder.objects.create(
+                    user=request.user,
+                    source_account=source,
+                    beneficiary_name=data["beneficiary_name"],
+                    destination_iban=destination_iban,
+                    amount=data["amount"],
+                    narration=data.get("narration", ""),
+                    frequency=data["frequency"],
+                    start_date=data["start_date"],
+                    next_run_date=data["start_date"],
+                    end_date=data.get("end_date"),
+                    max_executions=data.get("max_executions"),
+                )
+                log_action(request.user, "STANDING_ORDER_CREATE",
+                           f"€{order.amount} {order.get_frequency_display()} to "
+                           f"{order.beneficiary_name} ({order.destination_iban})", request)
+                messages.success(
+                    request,
+                    f"Standing order created — first payment on "
+                    f"{order.start_date:%d %b %Y}.",
+                )
+                return redirect("banking:standing_orders")
+    else:
+        form = StandingOrderForm(request.user)
+
+    orders = request.user.standing_orders.select_related(
+        "source_account", "source_account__account_type"
+    )
+    return render(request, "customer/standing_orders.html", {
+        "form": form, "orders": orders,
+    })
+
+
+@customer_required
+@require_POST
+def toggle_standing_order(request, pk):
+    """Pause an active standing order, or resume a paused one."""
+    order = get_object_or_404(StandingOrder, pk=pk, user=request.user)
+    if order.status == StandingOrder.Status.ACTIVE:
+        order.status = StandingOrder.Status.PAUSED
+        # If the next run is in the past while paused, roll it forward to today
+        # so it does not fire immediately on resume.
+        if order.next_run_date < timezone.localdate():
+            order.next_run_date = timezone.localdate()
+        order.save(update_fields=["status", "next_run_date", "updated_at"])
+        log_action(request.user, "STANDING_ORDER_PAUSE", str(order.pk), request)
+        messages.success(request, "Standing order paused.")
+    elif order.status == StandingOrder.Status.PAUSED:
+        order.status = StandingOrder.Status.ACTIVE
+        if order.next_run_date < timezone.localdate():
+            order.next_run_date = timezone.localdate()
+        order.save(update_fields=["status", "next_run_date", "updated_at"])
+        log_action(request.user, "STANDING_ORDER_RESUME", str(order.pk), request)
+        messages.success(request, "Standing order resumed.")
+    else:
+        messages.error(request, "This standing order can no longer be changed.")
+    return redirect("banking:standing_orders")
+
+
+@customer_required
+@require_POST
+def cancel_standing_order(request, pk):
+    order = get_object_or_404(StandingOrder, pk=pk, user=request.user)
+    if order.status in (StandingOrder.Status.ACTIVE, StandingOrder.Status.PAUSED):
+        order.status = StandingOrder.Status.CANCELLED
+        order.save(update_fields=["status", "updated_at"])
+        log_action(request.user, "STANDING_ORDER_CANCEL", str(order.pk), request)
+        messages.success(request, "Standing order cancelled.")
+    else:
+        messages.error(request, "This standing order is already finished.")
+    return redirect("banking:standing_orders")
