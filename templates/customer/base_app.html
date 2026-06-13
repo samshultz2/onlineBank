@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app">
+  <aside class="sidebar">
+    <a href="{% url 'banking:dashboard' %}" class="brand">Secure<span class="brand-mark">Trust</span></a>
+    <nav>
+      <div class="nav-section">Banking</div>
+      <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'banking:dashboard' %}">🏠 Dashboard</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'account_list' or request.resolver_match.url_name == 'account_detail' %}active{% endif %}" href="{% url 'banking:account_list' %}">🏦 My accounts</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'transfer' %}active{% endif %}" href="{% url 'banking:transfer' %}">💸 Transfer money</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'pay_bills' %}active{% endif %}" href="{% url 'banking:pay_bills' %}">🧾 Pay bills</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'beneficiaries' %}active{% endif %}" href="{% url 'banking:beneficiaries' %}">👥 Beneficiaries</a>
+      <div class="nav-section">Grow &amp; borrow</div>
+      <a class="nav-link {% if request.resolver_match.url_name == 'fixed_deposits' %}active{% endif %}" href="{% url 'banking:fixed_deposits' %}">📈 Fixed deposits</a>
+      <a class="nav-link {% if request.resolver_match.namespace == 'loans' %}active{% endif %}" href="{% url 'loans:list' %}">🤝 Loans</a>
+      <a class="nav-link {% if request.resolver_match.namespace == 'cards' %}active{% endif %}" href="{% url 'cards:list' %}">💳 Cards</a>
+      <div class="nav-section">Account</div>
+      <a class="nav-link {% if request.resolver_match.namespace == 'notifications' %}active{% endif %}" href="{% url 'notifications:list' %}">
+        🔔 Notifications
+        {% if unread_notification_count %}<span class="nav-badge">{{ unread_notification_count }}</span>{% endif %}
+      </a>
+      <a class="nav-link {% if request.resolver_match.namespace == 'support' %}active{% endif %}" href="{% url 'support:list' %}">💬 Support</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'accounts:profile' %}">⚙️ Profile &amp; settings</a>
+    </nav>
+    <div class="sidebar-foot">
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm" style="border-color:#475569;color:#cbd5e1">Sign out</button>
+      </form>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="flex">
+        <button class="hamburger" aria-label="Menu">☰</button>
+        <span class="page-title">{% block page_title %}{% endblock %}</span>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'notifications:list' %}" class="bell" title="Notifications">🔔
+          {% if unread_notification_count %}<span class="bell-count">{{ unread_notification_count }}</span>{% endif %}
+        </a>
+        <span class="user-chip">
+          <span class="avatar">{{ request.user.first_name|slice:":1"|default:"?" }}{{ request.user.last_name|slice:":1" }}</span>
+          <span class="small">{{ request.user.get_full_name|default:request.user.email }}</span>
+        </span>
+      </div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}SecureTrust Bank — Banking you can trust{% endblock %}
+{% block body %}
+<header class="landing-nav">
+  <span class="brand">Secure<span class="brand-mark">Trust</span> Bank</span>
+  <nav class="nav-links">
+    <a href="{% url 'accounts:login' %}" class="btn btn-outline btn-sm">Sign in</a>
+    <a href="{% url 'accounts:register' %}" class="btn btn-accent btn-sm">Open an account</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Banking that puts you first.</h1>
+  <p>Open an account in minutes, send money instantly, pay bills, grow your savings
+     with fixed deposits and get loans when you need them — all in one secure place.</p>
+  <a href="{% url 'accounts:register' %}" class="btn btn-accent">Open a free account</a>
+</section>
+
+<section class="features">
+  <div class="feature">
+    <div class="icon">⚡</div>
+    <h3>Instant transfers</h3>
+    <p>Send money to any SecureTrust account instantly, 24/7, with real-time
+       alerts on every transaction.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">🔒</div>
+    <h3>Bank-grade security</h3>
+    <p>Transaction PINs, login protection, session timeouts and a full audit
+       trail keep your money safe.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">📈</div>
+    <h3>Fixed deposits</h3>
+    <p>Lock savings away for 30 to 365 days and earn up to 13% per annum.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">💳</div>
+    <h3>Cards on demand</h3>
+    <p>Request Verve, Visa or Mastercard debit cards and freeze them instantly
+       from your dashboard.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">🏦</div>
+    <h3>Loans made simple</h3>
+    <p>Apply online, get a clear repayment plan, and track your balance as you
+       pay down.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">🧾</div>
+    <h3>Bills &amp; statements</h3>
+    <p>Pay electricity, TV and internet bills, and download statements any time.</p>
+  </div>
+</section>
+
+<footer class="landing-footer">
+  © {% now "Y" %} SecureTrust Bank. Licensed and regulated. Deposits insured.
+</footer>
+{% endblock %}

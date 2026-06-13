@@ -1,0 +1,33 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}Receipt {{ trx.reference }} — SecureTrust Bank{% endblock %}
+{% block page_title %}Transaction receipt{% endblock %}
+{% block content %}
+<div class="receipt">
+  <div class="card">
+    <div style="text-align:center">
+      <span class="brand">Secure<span class="brand-mark">Trust</span> Bank</span>
+      <p class="text-muted small mb-0">Transaction receipt</p>
+    </div>
+    <div class="receipt-amount {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
+      {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+    </div>
+    <div class="receipt-status">
+      <span class="badge badge-{{ trx.status|lower }}">{{ trx.get_status_display }}</span>
+    </div>
+    <dl class="dl">
+      <dt>Reference</dt><dd class="mono">{{ trx.reference }}</dd>
+      <dt>Date</dt><dd>{{ trx.created_at|date:"d M Y, H:i:s" }}</dd>
+      <dt>Account</dt><dd>{{ trx.account.account_number }} ({{ trx.account.account_type.name }})</dd>
+      <dt>Type</dt><dd>{{ trx.get_channel_display }} — {{ trx.get_direction_display }}</dd>
+      <dt>Description</dt><dd>{{ trx.description|default:"—" }}</dd>
+      {% if trx.counterparty_name %}<dt>Counterparty</dt><dd>{{ trx.counterparty_name }}{% if trx.counterparty_account %} · {{ trx.counterparty_account }}{% endif %}</dd>{% endif %}
+      <dt>Balance after</dt><dd>₦{{ trx.balance_after|floatformat:2|intcomma }}</dd>
+    </dl>
+    <div class="flex mt-3 no-print">
+      <button class="btn" onclick="window.print()">Print / save PDF</button>
+      <a class="btn btn-outline" href="{% url 'banking:account_detail' trx.account.account_number %}">Back to account</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

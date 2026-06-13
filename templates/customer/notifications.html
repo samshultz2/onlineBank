@@ -1,0 +1,32 @@
+{% extends "customer/base_app.html" %}
+{% block title %}Notifications — SecureTrust Bank{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px">
+  <div class="flex-between">
+    <h2 class="card-title mb-0">Notifications</h2>
+    <form method="post" action="{% url 'notifications:mark_all_read' %}">
+      {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Mark all as read</button>
+    </form>
+  </div>
+  <div class="mt-2">
+    {% for n in notifications %}
+    <div class="alert alert-{{ n.level }} alert-static" {% if not n.is_read %}style="font-weight:600"{% endif %}>
+      <div class="flex-between">
+        <strong>{{ n.title }}</strong>
+        <span class="text-muted small">{{ n.created_at|date:"d M Y H:i" }}</span>
+      </div>
+      <div class="small" style="font-weight:400">{{ n.message }}</div>
+      {% if not n.is_read %}
+      <form method="post" action="{% url 'notifications:mark_read' n.pk %}" class="mt-1">
+        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline">Mark read</button>
+      </form>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="empty-state">Nothing here yet — alerts about your money will appear here.</p>
+    {% endfor %}
+  </div>
+  {% include "partials/_pagination.html" with page=notifications %}
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}Cards — Staff{% endblock %}
+{% block page_title %}Card management{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" class="filter-bar">
+    <div class="form-group">
+      <select name="status" class="form-control form-select">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-sm">Filter</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Customer</th><th>Account</th><th>Scheme</th><th>Card number</th><th>Status</th><th>Requested</th><th></th></tr></thead>
+      <tbody>
+        {% for card in cards %}
+        <tr>
+          <td><a href="{% url 'staffportal:customer_detail' card.user.pk %}">{{ card.user.get_full_name|default:card.user.email }}</a></td>
+          <td class="mono small">{{ card.account.account_number }}</td>
+          <td>{{ card.get_scheme_display }}</td>
+          <td class="mono small">{{ card.masked_number }}</td>
+          <td><span class="badge badge-{{ card.status|lower }}">{{ card.get_status_display }}</span></td>
+          <td class="small">{{ card.requested_at|date:"d M Y" }}</td>
+          <td>
+            {% if card.status == 'REQUESTED' %}
+            <form method="post" action="{% url 'staffportal:card_issue' card.pk %}" class="inline-form"
+                  data-confirm="Issue and activate this card?">
+              {% csrf_token %}<button type="submit" class="btn btn-sm btn-accent">Issue card</button>
+            </form>
+            {% elif card.status == 'ACTIVE' or card.status == 'FROZEN' %}
+              {% if request.user.role != 'TELLER' %}
+              <form method="post" action="{% url 'staffportal:card_block' card.pk %}" class="inline-form"
+                    data-confirm="Permanently block this card?">
+                {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger">Block</button>
+              </form>
+              {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="empty-state">No cards found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=cards query_string=request.GET.urlencode %}
+</div>
+{% endblock %}

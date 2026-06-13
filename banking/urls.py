@@ -1,0 +1,20 @@
+from django.urls import path
+
+from . import views
+
+app_name = "banking"
+
+urlpatterns = [
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("accounts/", views.account_list, name="account_list"),
+    path("accounts/<str:account_number>/", views.account_detail, name="account_detail"),
+    path("accounts/<str:account_number>/statement.csv", views.download_statement, name="download_statement"),
+    path("transfer/", views.transfer, name="transfer"),
+    path("transfer/lookup/", views.lookup_account, name="lookup_account"),
+    path("receipt/<str:reference>/", views.transaction_receipt, name="receipt"),
+    path("bills/", views.pay_bills, name="pay_bills"),
+    path("fixed-deposits/", views.fixed_deposits, name="fixed_deposits"),
+    path("fixed-deposits/<int:pk>/close/", views.close_fixed_deposit, name="close_fixed_deposit"),
+    path("beneficiaries/", views.beneficiaries, name="beneficiaries"),
+    path("beneficiaries/<int:pk>/delete/", views.delete_beneficiary, name="delete_beneficiary"),
+]

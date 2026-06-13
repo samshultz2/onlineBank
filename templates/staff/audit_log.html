@@ -1,0 +1,32 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}Audit log — Staff{% endblock %}
+{% block page_title %}Audit log{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" class="filter-bar">
+    <div class="form-group">
+      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search action, description or actor">
+    </div>
+    <button type="submit" class="btn btn-sm">Search</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Description</th><th>IP</th></tr></thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td class="small">{{ entry.created_at|date:"d M Y H:i:s" }}</td>
+          <td class="small">{{ entry.actor.get_full_name|default:entry.actor.email|default:"—" }}</td>
+          <td><span class="badge badge-info">{{ entry.action }}</span></td>
+          <td class="small">{{ entry.description }}</td>
+          <td class="mono small">{{ entry.ip_address|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="empty-state">No audit entries found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=entries query_string=request.GET.urlencode %}
+</div>
+{% endblock %}

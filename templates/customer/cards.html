@@ -1,0 +1,81 @@
+{% extends "customer/base_app.html" %}
+{% block title %}My cards — SecureTrust Bank{% endblock %}
+{% block page_title %}My cards{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <div>
+    {% for card in cards %}
+    <div class="card">
+      <div class="pay-card scheme-{{ card.scheme }} {% if card.status == 'FROZEN' %}frozen{% endif %}">
+        <div class="pc-row">
+          <strong>SecureTrust Bank</strong>
+          <span>{{ card.get_scheme_display }}</span>
+        </div>
+        <div class="pc-number">{{ card.masked_number }}</div>
+        <div class="pc-row">
+          <span>{{ card.user.get_full_name|upper }}</span>
+          <span>EXP {{ card.expiry_display }}</span>
+        </div>
+      </div>
+      <div class="flex-between mt-2">
+        <span class="badge badge-{{ card.status|lower }}">{{ card.get_status_display }}</span>
+        <span class="text-muted small">Account {{ card.account.account_number }}</span>
+      </div>
+      {% if card.status == 'ACTIVE' or card.status == 'FROZEN' %}
+      <div class="flex mt-2">
+        <button class="btn btn-sm {% if card.status == 'ACTIVE' %}btn-warning{% else %}btn-accent{% endif %}"
+                data-modal-open="#card-modal-{{ card.pk }}">
+          {% if card.status == 'ACTIVE' %}Freeze card{% else %}Unfreeze card{% endif %}
+        </button>
+        <button class="btn btn-sm btn-danger" data-modal-open="#card-block-{{ card.pk }}">Block permanently</button>
+      </div>
+      <div class="modal-backdrop" id="card-modal-{{ card.pk }}">
+        <div class="modal">
+          <h3>{% if card.status == 'ACTIVE' %}Freeze{% else %}Unfreeze{% endif %} card {{ card.masked_number }}</h3>
+          <form method="post" action="{% url 'cards:toggle_freeze' card.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+              <label>Enter your transaction PIN to confirm</label>
+              <input type="password" name="pin" class="form-control" maxlength="4" inputmode="numeric" required>
+            </div>
+            <div class="flex">
+              <button type="submit" class="btn btn-accent">Confirm</button>
+              <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="modal-backdrop" id="card-block-{{ card.pk }}">
+        <div class="modal">
+          <h3>Block card {{ card.masked_number }} permanently?</h3>
+          <p class="text-muted small">This cannot be undone. You will need to request a replacement card.</p>
+          <form method="post" action="{% url 'cards:block' card.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+              <label>Enter your transaction PIN to confirm</label>
+              <input type="password" name="pin" class="form-control" maxlength="4" inputmode="numeric" required>
+            </div>
+            <div class="flex">
+              <button type="submit" class="btn btn-danger">Block card</button>
+              <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="card empty-state">You have no cards yet — request one on the right.</div>
+    {% endfor %}
+  </div>
+  <div class="card" style="align-self:start">
+    <h2 class="card-title">Request a new card</h2>
+    <p class="text-muted small">Your card request is reviewed by the bank and activated once printed.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/_form.html" %}
+      <button type="submit" class="btn btn-accent">Request card</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

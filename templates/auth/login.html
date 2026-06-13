@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in — SecureTrust Bank{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <a href="{% url 'accounts:home' %}" class="brand">Secure<span class="brand-mark">Trust</span> Bank</a>
+      <p class="text-muted small mb-0">Sign in to internet banking</p>
+    </div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/_form.html" %}
+      <button type="submit" class="btn btn-accent btn-block">Sign in</button>
+    </form>
+    <div class="auth-footer">
+      <a href="{% url 'accounts:password_reset' %}">Forgot password?</a><br>
+      New here? <a href="{% url 'accounts:register' %}">Open an account</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

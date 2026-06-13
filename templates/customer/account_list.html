@@ -1,0 +1,21 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}My accounts — SecureTrust Bank{% endblock %}
+{% block page_title %}My accounts{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  {% for account in accounts %}
+  <div class="acct-card">
+    <div class="acct-type">{{ account.account_type.name }} · {{ account.get_status_display }}</div>
+    <div class="acct-number">{{ account.account_number }}</div>
+    <div class="acct-balance">₦{{ account.balance|floatformat:2|intcomma }}</div>
+    <div class="flex-between">
+      <span class="small">Available: ₦{{ account.available_balance|floatformat:2|intcomma }}</span>
+      <a href="{% url 'banking:account_detail' account.account_number %}">Statement →</a>
+    </div>
+  </div>
+  {% empty %}
+  <div class="card empty-state">No accounts yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

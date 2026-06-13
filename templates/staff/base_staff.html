@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app">
+  <aside class="sidebar">
+    <a href="{% url 'staffportal:dashboard' %}" class="brand">Secure<span class="brand-mark">Trust</span> <span class="small" style="color:var(--gold)">STAFF</span></a>
+    <nav>
+      <div class="nav-section">Operations</div>
+      <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'staffportal:dashboard' %}">📊 Dashboard</a>
+      <a class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:customer_list' %}">👤 Customers</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'kyc_queue' %}active{% endif %}" href="{% url 'staffportal:kyc_queue' %}">🪪 KYC queue</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'account_list' or request.resolver_match.url_name == 'account_detail' %}active{% endif %}" href="{% url 'staffportal:account_list' %}">🏦 Accounts</a>
+      <a class="nav-link {% if 'transaction' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:transaction_list' %}">🧾 Transactions</a>
+      <a class="nav-link {% if 'card' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:card_list' %}">💳 Cards</a>
+      <a class="nav-link {% if 'loan_' in request.resolver_match.url_name and 'product' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:loan_list' %}">🤝 Loans</a>
+      <a class="nav-link {% if 'fixed_deposit' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:fixed_deposit_list' %}">📈 Fixed deposits</a>
+      <a class="nav-link {% if 'ticket' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:ticket_list' %}">💬 Tickets</a>
+      {% if request.user.role == 'ADMIN' %}
+      <div class="nav-section">Configuration</div>
+      <a class="nav-link {% if 'account_type' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:account_type_list' %}">🗂️ Account types</a>
+      <a class="nav-link {% if 'loan_product' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:loan_product_list' %}">📋 Loan products</a>
+      <a class="nav-link {% if 'biller' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:biller_list' %}">🧾 Billers</a>
+      <a class="nav-link {% if 'staff' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:staff_list' %}">🛡️ Staff &amp; roles</a>
+      {% endif %}
+      {% if request.user.role == 'ADMIN' or request.user.role == 'MANAGER' %}
+      <a class="nav-link {% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}" href="{% url 'staffportal:audit_log' %}">🔍 Audit log</a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-foot">
+      <div class="small">{{ request.user.get_full_name|default:request.user.email }}<br>
+        <span class="text-muted">{{ request.user.get_role_display }}</span></div>
+      <form method="post" action="{% url 'accounts:logout' %}" class="mt-1">{% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm" style="border-color:#475569;color:#cbd5e1">Sign out</button>
+      </form>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="flex">
+        <button class="hamburger" aria-label="Menu">☰</button>
+        <span class="page-title">{% block page_title %}{% endblock %}</span>
+      </div>
+      <div class="topbar-right">
+        <span class="user-chip">
+          <span class="avatar" style="background:var(--gold)">{{ request.user.first_name|slice:":1"|default:"S" }}{{ request.user.last_name|slice:":1" }}</span>
+          <span class="small">{{ request.user.get_role_display }}</span>
+        </span>
+      </div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}

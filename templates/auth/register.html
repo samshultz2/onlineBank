@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Open an account — SecureTrust Bank{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <div class="auth-card wide">
+    <div class="auth-logo">
+      <a href="{% url 'accounts:home' %}" class="brand">Secure<span class="brand-mark">Trust</span> Bank</a>
+      <p class="text-muted small mb-0">Open your account in minutes — a savings account is created for you instantly.</p>
+    </div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="form-grid">
+      {% for field in form.visible_fields %}
+        <div class="form-group">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-accent btn-block">Create my account</button>
+    </form>
+    <div class="auth-footer">Already banking with us? <a href="{% url 'accounts:login' %}">Sign in</a></div>
+  </div>
+</div>
+{% endblock %}

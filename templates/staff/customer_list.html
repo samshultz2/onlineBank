@@ -1,0 +1,45 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}Customers — Staff{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Customers</h1>
+  <a href="{% url 'staffportal:customer_create' %}" class="btn btn-accent">＋ New customer</a>
+</div>
+<div class="card">
+  <form method="get" class="filter-bar">
+    <div class="form-group">
+      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search name, email, phone, account no.">
+    </div>
+    <div class="form-group">
+      <select name="kyc" class="form-control form-select">
+        <option value="">All KYC statuses</option>
+        {% for value, label in kyc_choices %}
+        <option value="{{ value }}" {% if kyc == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-sm">Search</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Email / phone</th><th>KYC</th><th>Joined</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for customer in customers %}
+        <tr>
+          <td><a href="{% url 'staffportal:customer_detail' customer.pk %}"><strong>{{ customer.get_full_name|default:"(no name)" }}</strong></a></td>
+          <td class="small">{{ customer.email }}<br><span class="text-muted">{{ customer.phone }}</span></td>
+          <td>{% if customer.profile %}<span class="badge badge-{{ customer.profile.kyc_status|lower }}">{{ customer.profile.get_kyc_status_display }}</span>{% endif %}</td>
+          <td class="small">{{ customer.date_joined|date:"d M Y" }}</td>
+          <td>{% if customer.is_active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-blocked">Disabled</span>{% endif %}</td>
+          <td><a class="btn btn-sm btn-outline" href="{% url 'staffportal:customer_detail' customer.pk %}">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty-state">No customers found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=customers query_string=request.GET.urlencode %}
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}{{ account.account_number }} — SecureTrust Bank{% endblock %}
+{% block page_title %}Account {{ account.account_number }}{% endblock %}
+{% block content %}
+<div class="grid grid-3 mb-2">
+  <div class="stat">
+    <div class="stat-label">{{ account.account_type.name }}</div>
+    <div class="stat-value">₦{{ account.balance|floatformat:2|intcomma }}</div>
+    <span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span>
+  </div>
+  <div class="stat stat-info">
+    <div class="stat-label">Available balance</div>
+    <div class="stat-value">₦{{ account.available_balance|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="stat stat-warning">
+    <div class="stat-label">Daily transfer limit</div>
+    <div class="stat-value">₦{{ account.account_type.daily_transfer_limit|floatformat:0|intcomma }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="flex-between">
+    <h2 class="card-title mb-0">Statement</h2>
+    <div class="flex no-print">
+      <a class="btn btn-sm btn-outline" href="{% url 'banking:download_statement' account.account_number %}?{{ request.GET.urlencode }}">Download CSV</a>
+      <button class="btn btn-sm" onclick="window.print()">Print</button>
+    </div>
+  </div>
+  <form method="get" class="filter-bar mt-2">
+    {% for field in filter_form.visible_fields %}
+      <div class="form-group">
+        <label class="small" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-sm">Filter</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="text-right">Amount</th><th class="text-right">Balance</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for trx in transactions %}
+        <tr>
+          <td class="small">{{ trx.created_at|date:"d M Y H:i" }}</td>
+          <td class="mono small"><a href="{% url 'banking:receipt' trx.reference %}">{{ trx.reference }}</a></td>
+          <td>{{ trx.description }}</td>
+          <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
+            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+          </td>
+          <td class="text-right">₦{{ trx.balance_after|floatformat:2|intcomma }}</td>
+          <td><span class="badge badge-{{ trx.status|lower }}">{{ trx.get_status_display }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty-state">No transactions match this filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=transactions %}
+</div>
+{% endblock %}

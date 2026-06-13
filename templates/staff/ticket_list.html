@@ -1,0 +1,40 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}Tickets — Staff{% endblock %}
+{% block page_title %}Support tickets{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" class="filter-bar">
+    <div class="form-group">
+      <select name="status" class="form-control form-select">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-sm">Filter</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>#</th><th>Subject</th><th>Customer</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Updated</th><th></th></tr></thead>
+      <tbody>
+        {% for ticket in tickets %}
+        <tr>
+          <td>{{ ticket.pk }}</td>
+          <td>{{ ticket.subject|truncatechars:40 }}<div class="text-muted small">{{ ticket.get_category_display }}</div></td>
+          <td><a href="{% url 'staffportal:customer_detail' ticket.user.pk %}">{{ ticket.user.get_full_name|default:ticket.user.email }}</a></td>
+          <td><span class="badge {% if ticket.priority == 'HIGH' %}badge-danger{% elif ticket.priority == 'NORMAL' %}badge-info{% else %}badge-muted{% endif %}">{{ ticket.get_priority_display }}</span></td>
+          <td><span class="badge badge-{{ ticket.status|lower }}">{{ ticket.get_status_display }}</span></td>
+          <td class="small">{{ ticket.assigned_to.get_full_name|default:"—" }}</td>
+          <td class="small">{{ ticket.updated_at|date:"d M H:i" }}</td>
+          <td><a class="btn btn-sm btn-outline" href="{% url 'staffportal:ticket_detail' ticket.pk %}">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="empty-state">No tickets found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=tickets query_string=request.GET.urlencode %}
+</div>
+{% endblock %}

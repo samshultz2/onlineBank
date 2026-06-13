@@ -1,0 +1,31 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}Ticket #{{ ticket.pk }} — Staff{% endblock %}
+{% block page_title %}Ticket #{{ ticket.pk }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px">
+  <div class="flex-between">
+    <h2 class="card-title mb-0">{{ ticket.subject }}</h2>
+    <span class="badge badge-{{ ticket.status|lower }}">{{ ticket.get_status_display }}</span>
+  </div>
+  <p class="text-muted small">
+    {{ ticket.get_category_display }} · {{ ticket.get_priority_display }} priority ·
+    by <a href="{% url 'staffportal:customer_detail' ticket.user.pk %}">{{ ticket.user.get_full_name|default:ticket.user.email }}</a>
+    · opened {{ ticket.created_at|date:"d M Y H:i" }}
+  </p>
+
+  <div class="thread mt-2">
+    {% for message in thread %}
+    <div class="msg {% if message.sender.is_bank_staff %}mine{% endif %}">
+      {{ message.body|linebreaksbr }}
+      <div class="msg-meta">{{ message.sender.get_full_name|default:message.sender.email }}{% if message.sender.is_bank_staff %} (staff){% endif %} · {{ message.created_at|date:"d M Y H:i" }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <form method="post" class="mt-3" novalidate>
+    {% csrf_token %}
+    {% include "partials/_form.html" %}
+    <button type="submit" class="btn btn-accent">Update ticket</button>
+  </form>
+</div>
+{% endblock %}

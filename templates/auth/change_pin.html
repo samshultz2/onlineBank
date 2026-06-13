@@ -1,0 +1,13 @@
+{% extends "customer/base_app.html" %}
+{% block title %}Change PIN — SecureTrust Bank{% endblock %}
+{% block page_title %}Change transaction PIN{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px">
+  <h2 class="card-title">Change your transaction PIN</h2>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/_form.html" %}
+    <button type="submit" class="btn btn-accent">Change PIN</button>
+  </form>
+</div>
+{% endblock %}

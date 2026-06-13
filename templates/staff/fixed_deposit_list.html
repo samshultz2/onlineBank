@@ -1,0 +1,40 @@
+{% extends "staff/base_staff.html" %}
+{% load humanize %}
+{% block title %}Fixed deposits — Staff{% endblock %}
+{% block page_title %}Fixed deposits{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Reference</th><th>Customer</th><th class="text-right">Principal</th><th>Rate</th><th>Maturity</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for fd in deposits %}
+        <tr>
+          <td class="mono small">{{ fd.reference }}</td>
+          <td><a href="{% url 'staffportal:customer_detail' fd.user.pk %}">{{ fd.user.get_full_name|default:fd.user.email }}</a></td>
+          <td class="text-right">₦{{ fd.principal|floatformat:2|intcomma }}</td>
+          <td>{{ fd.interest_rate }}%</td>
+          <td class="small">{{ fd.maturity_date }}{% if fd.is_matured and fd.status == 'ACTIVE' %} <span class="badge badge-warning">Due</span>{% endif %}</td>
+          <td><span class="badge badge-{{ fd.status|lower }}">{{ fd.get_status_display }}</span></td>
+          <td>
+            {% if fd.status == 'ACTIVE' and request.user.role != 'TELLER' %}
+            <form method="post" action="{% url 'staffportal:fixed_deposit_close' fd.pk %}" class="inline-form"
+                  data-confirm="{% if fd.is_matured %}Pay out this matured deposit?{% else %}Break this deposit early? The customer forfeits interest.{% endif %}">
+              {% csrf_token %}
+              {% if not fd.is_matured %}<input type="hidden" name="force_break" value="1">{% endif %}
+              <button type="submit" class="btn btn-sm {% if fd.is_matured %}btn-accent{% else %}btn-danger{% endif %}">
+                {% if fd.is_matured %}Pay out{% else %}Break early{% endif %}
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="empty-state">No fixed deposits.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=deposits %}
+</div>
+{% endblock %}

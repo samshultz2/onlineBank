@@ -1,0 +1,14 @@
+{% extends "customer/base_app.html" %}
+{% block title %}Apply for a loan — SecureTrust Bank{% endblock %}
+{% block page_title %}Loan application{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px">
+  <h2 class="card-title">Apply for a loan</h2>
+  <p class="text-muted small">Interest is flat-rate per annum. Your application is reviewed by a loan officer; the money is credited as soon as it's approved.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/_form.html" %}
+    <button type="submit" class="btn btn-accent btn-block">Submit application</button>
+  </form>
+</div>
+{% endblock %}

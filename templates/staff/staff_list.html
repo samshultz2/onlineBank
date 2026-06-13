@@ -1,0 +1,49 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}Staff &amp; roles — Staff{% endblock %}
+{% block page_title %}Staff &amp; roles{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2 class="card-title">Team members</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for member in staff %}
+          <tr>
+            <td>{{ member.get_full_name|default:"—" }}</td>
+            <td class="small">{{ member.email }}</td>
+            <td><span class="badge {% if member.role == 'ADMIN' %}badge-danger{% elif member.role == 'MANAGER' %}badge-warning{% else %}badge-info{% endif %}">{{ member.get_role_display }}</span></td>
+            <td>{% if member.is_active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-blocked">Disabled</span>{% endif %}</td>
+            <td>
+              {% if member != request.user %}
+              <form method="post" action="{% url 'staffportal:staff_toggle_active' member.pk %}" class="inline-form"
+                    data-confirm="{% if member.is_active %}Deactivate this staff member?{% else %}Re-activate this staff member?{% endif %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm {% if member.is_active %}btn-danger{% else %}btn-accent{% endif %}">
+                  {% if member.is_active %}Deactivate{% else %}Activate{% endif %}
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card" style="align-self:start">
+    <h2 class="card-title">Add staff member</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/_form.html" %}
+      <button type="submit" class="btn btn-accent">Create staff account</button>
+    </form>
+    <p class="text-muted small mt-2">
+      <strong>Teller:</strong> customer service, deposits/withdrawals, card issuance.<br>
+      <strong>Manager:</strong> + KYC decisions, loan approvals, reversals, account status.<br>
+      <strong>Administrator:</strong> + configuration, adjustments, staff management.
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "staff/base_staff.html" %}
+{% load humanize %}
+{% block title %}{{ customer.get_full_name }} — Staff{% endblock %}
+{% block page_title %}Customer profile{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ customer.get_full_name|default:customer.email }}</h1>
+  <div class="flex">
+    <a href="{% url 'staffportal:customer_edit' customer.pk %}" class="btn btn-outline btn-sm">Edit details</a>
+    {% if request.user.role != 'TELLER' %}
+    <form method="post" action="{% url 'staffportal:customer_toggle_active' customer.pk %}" class="inline-form"
+          data-confirm="{% if customer.is_active %}Deactivate this customer? They will no longer be able to sign in.{% else %}Re-activate this customer?{% endif %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm {% if customer.is_active %}btn-danger{% else %}btn-accent{% endif %}">
+        {% if customer.is_active %}Deactivate{% else %}Re-activate{% endif %}
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div>
+    <div class="card">
+      <h2 class="card-title">Personal information</h2>
+      <dl class="dl">
+        <dt>Email</dt><dd>{{ customer.email }}</dd>
+        <dt>Phone</dt><dd>{{ customer.phone|default:"—" }}</dd>
+        {% if profile %}
+        <dt>Date of birth</dt><dd>{{ profile.date_of_birth|default:"—" }}</dd>
+        <dt>Gender</dt><dd>{{ profile.get_gender_display|default:"—" }}</dd>
+        <dt>Address</dt><dd>{{ profile.address|default:"—" }}{% if profile.city %}, {{ profile.city }}{% endif %}{% if profile.state %}, {{ profile.state }}{% endif %}</dd>
+        <dt>National ID / BVN</dt><dd>{{ profile.national_id_number|default:"—" }}</dd>
+        <dt>Occupation</dt><dd>{{ profile.occupation|default:"—" }}</dd>
+        <dt>Next of kin</dt><dd>{{ profile.next_of_kin_name|default:"—" }} {% if profile.next_of_kin_phone %}({{ profile.next_of_kin_phone }}){% endif %}</dd>
+        <dt>Joined</dt><dd>{{ customer.date_joined|date:"d M Y H:i" }}</dd>
+        <dt>Last login</dt><dd>{{ customer.last_login|date:"d M Y H:i"|default:"Never" }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+
+    {% if profile %}
+    <div class="card">
+      <div class="flex-between">
+        <h2 class="card-title mb-0">KYC verification</h2>
+        <span class="badge badge-{{ profile.kyc_status|lower }}">{{ profile.get_kyc_status_display }}</span>
+      </div>
+      <div class="mt-2 flex">
+        {% if profile.photo %}<a href="{{ profile.photo.url }}" target="_blank" class="btn btn-sm btn-outline">View photo</a>{% endif %}
+        {% if profile.id_document %}<a href="{{ profile.id_document.url }}" target="_blank" class="btn btn-sm btn-outline">View ID document</a>{% endif %}
+        {% if not profile.photo and not profile.id_document %}<span class="text-muted small">No documents uploaded.</span>{% endif %}
+      </div>
+      {% if profile.kyc_rejection_reason %}<p class="form-error">Last rejection: {{ profile.kyc_rejection_reason }}</p>{% endif %}
+      {% if request.user.role != 'TELLER' %}
+      <form method="post" action="{% url 'staffportal:customer_kyc_decision' customer.pk %}" class="mt-2">
+        {% csrf_token %}
+        <div class="form-grid">
+          {% with form=kyc_form %}
+          {% for field in form.visible_fields %}
+          <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+            {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          {% endwith %}
+        </div>
+        <button type="submit" class="btn btn-accent btn-sm">Record decision</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="flex-between">
+        <h2 class="card-title mb-0">Accounts</h2>
+        <button class="btn btn-sm btn-accent" data-modal-open="#open-account-modal">＋ Open account</button>
+      </div>
+      <div class="table-wrap mt-2">
+        <table class="table">
+          <thead><tr><th>Number</th><th>Type</th><th class="text-right">Balance</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for account in accounts %}
+            <tr>
+              <td><a href="{% url 'staffportal:account_detail' account.account_number %}" class="mono">{{ account.account_number }}</a></td>
+              <td>{{ account.account_type.name }}</td>
+              <td class="text-right">₦{{ account.balance|floatformat:2|intcomma }}</td>
+              <td><span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="empty-state">No accounts.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Loans</h2>
+      {% for loan in loans %}
+        <div class="flex-between" style="padding:.35rem 0;border-bottom:1px solid var(--border)">
+          <a href="{% url 'staffportal:loan_detail' loan.pk %}">{{ loan.product.name }} — ₦{{ loan.amount|floatformat:2|intcomma }}</a>
+          <span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span>
+        </div>
+      {% empty %}<p class="text-muted small">No loans.</p>{% endfor %}
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Cards</h2>
+      {% for card in cards %}
+        <div class="flex-between" style="padding:.35rem 0;border-bottom:1px solid var(--border)">
+          <span>{{ card.get_scheme_display }} <span class="mono small">{{ card.masked_number }}</span></span>
+          <span class="badge badge-{{ card.status|lower }}">{{ card.get_status_display }}</span>
+        </div>
+      {% empty %}<p class="text-muted small">No cards.</p>{% endfor %}
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Recent tickets</h2>
+      {% for ticket in tickets %}
+        <div class="flex-between" style="padding:.35rem 0;border-bottom:1px solid var(--border)">
+          <a href="{% url 'staffportal:ticket_detail' ticket.pk %}">#{{ ticket.pk }} {{ ticket.subject|truncatechars:40 }}</a>
+          <span class="badge badge-{{ ticket.status|lower }}">{{ ticket.get_status_display }}</span>
+        </div>
+      {% empty %}<p class="text-muted small">No tickets.</p>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="open-account-modal">
+  <div class="modal">
+    <h3>Open a new account for {{ customer.get_full_name }}</h3>
+    <form method="post" action="{% url 'staffportal:account_open' customer.pk %}">
+      {% csrf_token %}
+      {% with form=account_open_form %}{% include "partials/_form.html" %}{% endwith %}
+      <div class="flex">
+        <button type="submit" class="btn btn-accent">Open account</button>
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

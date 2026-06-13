@@ -1,0 +1,64 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}Loan #{{ loan.pk }} — SecureTrust Bank{% endblock %}
+{% block page_title %}{{ loan.product.name }}{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="flex-between">
+      <h2 class="card-title mb-0">Loan details</h2>
+      <span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span>
+    </div>
+    <dl class="dl mt-2">
+      <dt>Principal</dt><dd>₦{{ loan.amount|floatformat:2|intcomma }}</dd>
+      <dt>Rate</dt><dd>{{ loan.product.interest_rate }}% p.a. (flat)</dd>
+      <dt>Tenor</dt><dd>{{ loan.tenor_months }} months</dd>
+      <dt>Monthly installment</dt><dd>₦{{ loan.monthly_installment|floatformat:2|intcomma }}</dd>
+      {% if loan.total_payable %}
+        <dt>Total payable</dt><dd>₦{{ loan.total_payable|floatformat:2|intcomma }}</dd>
+        <dt>Repaid so far</dt><dd>₦{{ loan.amount_repaid|floatformat:2|intcomma }}</dd>
+        <dt>Outstanding</dt><dd><strong>₦{{ loan.outstanding_balance|floatformat:2|intcomma }}</strong></dd>
+      {% endif %}
+      <dt>Disbursement account</dt><dd>{{ loan.disbursement_account.account_number }}</dd>
+      <dt>Purpose</dt><dd>{{ loan.purpose|default:"—" }}</dd>
+      {% if loan.decision_note %}<dt>Bank's note</dt><dd>{{ loan.decision_note }}</dd>{% endif %}
+    </dl>
+    {% if loan.total_payable %}
+    <div class="progress mt-2"><div class="progress-bar" style="width:{{ loan.repayment_progress }}%"></div></div>
+    <span class="text-muted small">{{ loan.repayment_progress }}% repaid</span>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if loan.status == 'ACTIVE' %}
+    <div class="card">
+      <h2 class="card-title">Make a repayment</h2>
+      <form method="post" action="{% url 'loans:repay' loan.pk %}" novalidate>
+        {% csrf_token %}
+        {% with form=repayment_form %}{% include "partials/_form.html" %}{% endwith %}
+        <button type="submit" class="btn btn-accent btn-block">Repay loan</button>
+      </form>
+    </div>
+    {% endif %}
+    <div class="card">
+      <h2 class="card-title">Repayment history</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Date</th><th>Reference</th><th class="text-right">Amount</th></tr></thead>
+          <tbody>
+            {% for repayment in repayments %}
+            <tr>
+              <td class="small">{{ repayment.paid_at|date:"d M Y H:i" }}</td>
+              <td class="mono small">{{ repayment.reference }}</td>
+              <td class="text-right amount-credit">₦{{ repayment.amount|floatformat:2|intcomma }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="empty-state">No repayments yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

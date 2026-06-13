@@ -1,0 +1,113 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}Dashboard — SecureTrust Bank{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+{% if kyc_status == "PENDING" %}
+  <div class="alert alert-warning alert-static">Your identity is not verified yet.
+    <a href="{% url 'accounts:upload_kyc' %}">Upload your KYC documents</a> to unlock loans and higher limits.</div>
+{% elif kyc_status == "REJECTED" %}
+  <div class="alert alert-error alert-static">Your KYC submission was rejected ({{ request.user.profile.kyc_rejection_reason }}).
+    <a href="{% url 'accounts:upload_kyc' %}">Re-upload your documents</a>.</div>
+{% endif %}
+
+{% if not request.user.profile.has_pin %}
+  <div class="alert alert-warning alert-static">You haven't set a transaction PIN.
+    <a href="{% url 'accounts:set_pin' %}">Set it now</a> to start transacting.</div>
+{% endif %}
+
+<div class="grid grid-3 mb-2">
+  <div class="stat">
+    <div class="stat-label">Total balance</div>
+    <div class="stat-value">₦{{ total_balance|floatformat:2|intcomma }}</div>
+    <span class="text-muted small">{{ accounts|length }} account{{ accounts|length|pluralize }}</span>
+  </div>
+  <div class="stat stat-info">
+    <div class="stat-label">Money in (30 days)</div>
+    <div class="stat-value amount-credit">+₦{{ money_in|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="stat stat-danger">
+    <div class="stat-label">Money out (30 days)</div>
+    <div class="stat-value amount-debit">−₦{{ money_out|floatformat:2|intcomma }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Quick actions</h2>
+  <div class="quick-actions">
+    <a class="quick-action" href="{% url 'banking:transfer' %}"><span class="icon">💸</span>Send money</a>
+    <a class="quick-action" href="{% url 'banking:pay_bills' %}"><span class="icon">🧾</span>Pay bills</a>
+    <a class="quick-action" href="{% url 'banking:fixed_deposits' %}"><span class="icon">📈</span>Fix savings</a>
+    <a class="quick-action" href="{% url 'loans:apply' %}"><span class="icon">🤝</span>Get a loan</a>
+    <a class="quick-action" href="{% url 'cards:list' %}"><span class="icon">💳</span>Cards</a>
+    <a class="quick-action" href="{% url 'support:list' %}"><span class="icon">💬</span>Get help</a>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div>
+    {% for account in accounts %}
+    <div class="acct-card mb-2" style="margin-bottom:1rem">
+      <div class="acct-type">{{ account.account_type.name }} · {{ account.get_status_display }}</div>
+      <div class="acct-number">{{ account.account_number }}</div>
+      <div class="acct-balance">₦{{ account.balance|floatformat:2|intcomma }}</div>
+      <a href="{% url 'banking:account_detail' account.account_number %}">View transactions →</a>
+    </div>
+    {% empty %}
+    <div class="card empty-state">No accounts yet. Contact the bank to open one.</div>
+    {% endfor %}
+
+    {% if active_fds %}
+    <div class="card">
+      <h2 class="card-title">Active fixed deposits</h2>
+      {% for fd in active_fds %}
+        <div class="flex-between" style="padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span>₦{{ fd.principal|floatformat:2|intcomma }} @ {{ fd.interest_rate }}%</span>
+          <span class="text-muted small">matures {{ fd.maturity_date }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if active_loans %}
+    <div class="card">
+      <h2 class="card-title">My loans</h2>
+      {% for loan in active_loans %}
+        <div class="flex-between" style="padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span><a href="{% url 'loans:detail' loan.pk %}">{{ loan.product.name }}</a> — ₦{{ loan.amount|floatformat:2|intcomma }}</span>
+          <span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="flex-between">
+      <h2 class="card-title mb-0">Recent transactions</h2>
+    </div>
+    <div class="table-wrap mt-2">
+      <table class="table">
+        <thead><tr><th>Date</th><th>Description</th><th class="text-right">Amount</th></tr></thead>
+        <tbody>
+          {% for trx in recent_transactions %}
+          <tr>
+            <td class="text-muted small">{{ trx.created_at|date:"d M, H:i" }}</td>
+            <td>
+              <a href="{% url 'banking:receipt' trx.reference %}">{{ trx.description|truncatechars:34 }}</a>
+              <div class="text-muted small">{{ trx.account.account_number }}</div>
+            </td>
+            <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
+              {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="empty-state">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

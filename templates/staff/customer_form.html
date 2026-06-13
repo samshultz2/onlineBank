@@ -1,0 +1,27 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}{{ title }} — Staff{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:860px">
+  <h2 class="card-title">{{ title }}</h2>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      {% for field in form.visible_fields %}
+        <div class="form-group">
+          {% if field.field.widget.input_type == "checkbox" %}
+            <div class="form-check-row">{{ field }} <label for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+          {% else %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-accent">{{ submit_label|default:"Save" }}</button>
+  </form>
+</div>
+{% endblock %}

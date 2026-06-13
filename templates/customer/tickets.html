@@ -1,0 +1,35 @@
+{% extends "customer/base_app.html" %}
+{% block title %}Support — SecureTrust Bank{% endblock %}
+{% block page_title %}Support{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2 class="card-title">Open a new ticket</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/_form.html" %}
+      <button type="submit" class="btn btn-accent">Submit ticket</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2 class="card-title">My tickets</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Subject</th><th>Status</th><th>Updated</th></tr></thead>
+        <tbody>
+          {% for ticket in tickets %}
+          <tr>
+            <td><a href="{% url 'support:detail' ticket.pk %}">#{{ ticket.pk }} {{ ticket.subject }}</a>
+              <div class="text-muted small">{{ ticket.get_category_display }}</div></td>
+            <td><span class="badge badge-{{ ticket.status|lower }}">{{ ticket.get_status_display }}</span></td>
+            <td class="small">{{ ticket.updated_at|date:"d M Y H:i" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="empty-state">No tickets yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "staff/base_staff.html" %}
+{% block title %}KYC queue — Staff{% endblock %}
+{% block page_title %}KYC review queue{% endblock %}
+{% block content %}
+<div class="card">
+  <h2 class="card-title">Customers awaiting verification</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Customer</th><th>ID number</th><th>Documents</th><th>Submitted</th><th></th></tr></thead>
+      <tbody>
+        {% for profile in profiles %}
+        <tr>
+          <td><strong>{{ profile.user.get_full_name|default:profile.user.email }}</strong>
+            <div class="text-muted small">{{ profile.user.email }}</div></td>
+          <td class="mono small">{{ profile.national_id_number|default:"—" }}</td>
+          <td class="small">
+            {% if profile.photo %}<a href="{{ profile.photo.url }}" target="_blank">Photo</a>{% endif %}
+            {% if profile.id_document %} · <a href="{{ profile.id_document.url }}" target="_blank">ID document</a>{% endif %}
+            {% if not profile.photo and not profile.id_document %}<span class="text-muted">None uploaded</span>{% endif %}
+          </td>
+          <td class="small">{{ profile.updated_at|date:"d M Y H:i" }}</td>
+          <td><a class="btn btn-sm btn-accent" href="{% url 'staffportal:customer_detail' profile.user.pk %}">Review</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="empty-state">🎉 Queue is clear — no pending KYC reviews.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=profiles %}
+</div>
+{% endblock %}

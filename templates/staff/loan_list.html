@@ -1,0 +1,41 @@
+{% extends "staff/base_staff.html" %}
+{% load humanize %}
+{% block title %}Loans — Staff{% endblock %}
+{% block page_title %}Loan management{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" class="filter-bar">
+    <div class="form-group">
+      <select name="status" class="form-control form-select">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-sm">Filter</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Customer</th><th>Product</th><th class="text-right">Amount</th><th>Tenor</th><th class="text-right">Outstanding</th><th>Status</th><th>Applied</th><th></th></tr></thead>
+      <tbody>
+        {% for loan in loans %}
+        <tr>
+          <td><a href="{% url 'staffportal:customer_detail' loan.user.pk %}">{{ loan.user.get_full_name|default:loan.user.email }}</a></td>
+          <td>{{ loan.product.name }}</td>
+          <td class="text-right">₦{{ loan.amount|floatformat:2|intcomma }}</td>
+          <td>{{ loan.tenor_months }} mo</td>
+          <td class="text-right">{% if loan.status == 'ACTIVE' %}₦{{ loan.outstanding_balance|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+          <td><span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span></td>
+          <td class="small">{{ loan.applied_at|date:"d M Y" }}</td>
+          <td><a class="btn btn-sm btn-outline" href="{% url 'staffportal:loan_detail' loan.pk %}">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="empty-state">No loans found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/_pagination.html" with page=loans query_string=request.GET.urlencode %}
+</div>
+{% endblock %}

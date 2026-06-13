@@ -1,0 +1,41 @@
+{% extends "customer/base_app.html" %}
+{% block title %}Profile — SecureTrust Bank{% endblock %}
+{% block page_title %}Profile &amp; settings{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2 class="card-title">Personal details</h2>
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% include "partials/_form.html" %}
+      <button type="submit" class="btn btn-accent">Save changes</button>
+    </form>
+  </div>
+  <div>
+    <div class="card">
+      <h2 class="card-title">Identity verification (KYC)</h2>
+      <p>Status:
+        <span class="badge badge-{{ profile.kyc_status|lower }}">{{ profile.get_kyc_status_display }}</span>
+      </p>
+      {% if profile.kyc_status == "REJECTED" %}
+        <p class="form-error">{{ profile.kyc_rejection_reason }}</p>
+      {% endif %}
+      {% if profile.kyc_status != "VERIFIED" %}
+        <a href="{% url 'accounts:upload_kyc' %}" class="btn btn-sm">Upload documents</a>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2 class="card-title">Security</h2>
+      <div class="flex">
+        <a href="{% url 'accounts:change_password' %}" class="btn btn-outline btn-sm">Change password</a>
+        {% if profile.has_pin %}
+          <a href="{% url 'accounts:change_pin' %}" class="btn btn-outline btn-sm">Change transaction PIN</a>
+        {% else %}
+          <a href="{% url 'accounts:set_pin' %}" class="btn btn-accent btn-sm">Set transaction PIN</a>
+        {% endif %}
+      </div>
+      <p class="text-muted small mt-2">Last login: {{ request.user.last_login|date:"d M Y H:i" }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

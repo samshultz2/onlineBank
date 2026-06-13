@@ -1,0 +1,93 @@
+{% extends "staff/base_staff.html" %}
+{% load humanize %}
+{% block title %}Staff dashboard — SecureTrust Bank{% endblock %}
+{% block page_title %}Operations dashboard{% endblock %}
+{% block content %}
+<div class="grid grid-4 mb-2">
+  <div class="stat">
+    <div class="stat-label">Customers</div>
+    <div class="stat-value">{{ customer_count|intcomma }}</div>
+    <a href="{% url 'staffportal:customer_list' %}">Manage →</a>
+  </div>
+  <div class="stat stat-info">
+    <div class="stat-label">Open accounts</div>
+    <div class="stat-value">{{ account_count|intcomma }}</div>
+    <a href="{% url 'staffportal:account_list' %}">Manage →</a>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Total deposits held</div>
+    <div class="stat-value">₦{{ total_deposits|floatformat:0|intcomma }}</div>
+  </div>
+  <div class="stat stat-info">
+    <div class="stat-label">Today's volume</div>
+    <div class="stat-value">₦{{ todays_volume|floatformat:0|intcomma }}</div>
+    <span class="text-muted small">{{ todays_count }} transaction{{ todays_count|pluralize }}</span>
+  </div>
+</div>
+
+<div class="grid grid-4 mb-2">
+  <div class="stat stat-warning">
+    <div class="stat-label">Pending KYC</div>
+    <div class="stat-value">{{ pending_kyc }}</div>
+    <a href="{% url 'staffportal:kyc_queue' %}">Review →</a>
+  </div>
+  <div class="stat stat-warning">
+    <div class="stat-label">Loan applications</div>
+    <div class="stat-value">{{ pending_loans }}</div>
+    <a href="{% url 'staffportal:loan_list' %}?status=PENDING">Review →</a>
+  </div>
+  <div class="stat stat-warning">
+    <div class="stat-label">Card requests</div>
+    <div class="stat-value">{{ pending_cards }}</div>
+    <a href="{% url 'staffportal:card_list' %}?status=REQUESTED">Issue →</a>
+  </div>
+  <div class="stat stat-danger">
+    <div class="stat-label">Open tickets</div>
+    <div class="stat-value">{{ open_tickets }}</div>
+    <a href="{% url 'staffportal:ticket_list' %}?status=OPEN">Respond →</a>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2 class="card-title">Transaction volume — last 7 days</h2>
+    <canvas id="volume-chart" class="chart-box"
+            data-labels='{{ chart_days|safe }}'
+            data-values='{{ chart_values|safe }}'></canvas>
+  </div>
+  <div class="card">
+    <h2 class="card-title">Latest transactions</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Time</th><th>Account</th><th>Description</th><th class="text-right">Amount</th></tr></thead>
+        <tbody>
+          {% for trx in recent_transactions %}
+          <tr>
+            <td class="small">{{ trx.created_at|date:"H:i" }}</td>
+            <td><a href="{% url 'staffportal:account_detail' trx.account.account_number %}" class="mono small">{{ trx.account.account_number }}</a></td>
+            <td class="small">{{ trx.description|truncatechars:32 }}</td>
+            <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
+              {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="empty-state">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Quick actions</h2>
+  <div class="quick-actions">
+    <a class="quick-action" href="{% url 'staffportal:customer_create' %}"><span class="icon">➕</span>New customer</a>
+    <a class="quick-action" href="{% url 'staffportal:account_list' %}"><span class="icon">💰</span>Post deposit</a>
+    <a class="quick-action" href="{% url 'staffportal:kyc_queue' %}"><span class="icon">🪪</span>KYC queue</a>
+    <a class="quick-action" href="{% url 'staffportal:loan_list' %}?status=PENDING"><span class="icon">🤝</span>Loan queue</a>
+    <a class="quick-action" href="{% url 'staffportal:card_list' %}?status=REQUESTED"><span class="icon">💳</span>Card queue</a>
+    <a class="quick-action" href="{% url 'staffportal:ticket_list' %}?status=OPEN"><span class="icon">💬</span>Tickets</a>
+  </div>
+</div>
+{% endblock %}

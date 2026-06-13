@@ -1,0 +1,45 @@
+{% extends "customer/base_app.html" %}
+{% block title %}Transfer money — SecureTrust Bank{% endblock %}
+{% block page_title %}Transfer money{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2 class="card-title">Send to a SecureTrust account</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form.visible_fields %}
+        <div class="form-group">
+          {% if field.name == "save_beneficiary" %}
+            <div class="form-check-row">{{ field }} <label for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+          {% else %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.name == "destination_account" %}
+              <div id="account-lookup-result" class="form-help" data-lookup-url="{% url 'banking:lookup_account' %}"></div>
+            {% endif %}
+          {% endif %}
+          {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-accent btn-block">Send money</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2 class="card-title">Saved beneficiaries</h2>
+    {% for b in beneficiaries %}
+      <a href="#" data-beneficiary="{{ b.account_number }}" class="flex-between" style="padding:.55rem 0;border-bottom:1px solid var(--border)">
+        <span>
+          <strong>{{ b.nickname|default:b.name }}</strong>
+          <div class="text-muted small">{{ b.name }}</div>
+        </span>
+        <span class="mono small">{{ b.account_number }}</span>
+      </a>
+    {% empty %}
+      <p class="empty-state">No beneficiaries saved yet. Tick “Save as beneficiary” when you transfer, or add them on the <a href="{% url 'banking:beneficiaries' %}">beneficiaries page</a>.</p>
+    {% endfor %}
+    <p class="text-muted small mt-2">Tip: click a beneficiary to fill in their account number.</p>
+  </div>
+</div>
+{% endblock %}

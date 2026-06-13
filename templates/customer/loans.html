@@ -1,0 +1,52 @@
+{% extends "customer/base_app.html" %}
+{% load humanize %}
+{% block title %}Loans — SecureTrust Bank{% endblock %}
+{% block page_title %}Loans{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>My loans</h1>
+  <a href="{% url 'loans:apply' %}" class="btn btn-accent">Apply for a loan</a>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Product</th><th class="text-right">Amount</th><th class="text-right">Outstanding</th><th>Progress</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for loan in loans %}
+        <tr>
+          <td>{{ loan.product.name }}<div class="text-muted small">{{ loan.applied_at|date:"d M Y" }}</div></td>
+          <td class="text-right">₦{{ loan.amount|floatformat:2|intcomma }}</td>
+          <td class="text-right">{% if loan.status == 'ACTIVE' %}₦{{ loan.outstanding_balance|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+          <td style="min-width:120px">
+            {% if loan.total_payable %}
+            <div class="progress"><div class="progress-bar" style="width:{{ loan.repayment_progress }}%"></div></div>
+            <span class="text-muted small">{{ loan.repayment_progress }}%</span>
+            {% else %}—{% endif %}
+          </td>
+          <td><span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span></td>
+          <td><a class="btn btn-sm btn-outline" href="{% url 'loans:detail' loan.pk %}">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty-state">No loans yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2>Loan products</h2>
+<div class="grid grid-3">
+  {% for product in products %}
+  <div class="card">
+    <h3>{{ product.name }}</h3>
+    <p class="text-muted small">{{ product.description }}</p>
+    <dl class="dl">
+      <dt>Rate</dt><dd>{{ product.interest_rate }}% p.a.</dd>
+      <dt>Amount</dt><dd>₦{{ product.min_amount|floatformat:0|intcomma }} – ₦{{ product.max_amount|floatformat:0|intcomma }}</dd>
+      <dt>Tenor</dt><dd>{{ product.min_tenor_months }}–{{ product.max_tenor_months }} months</dd>
+    </dl>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
