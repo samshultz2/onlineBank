@@ -96,7 +96,7 @@ class CustomerProfile(models.Model):
     state = models.CharField(max_length=100, blank=True)
     country = models.CharField(max_length=100, default="Germany")
     national_id_number = models.CharField(
-        "National ID / Tax number", max_length=30, blank=True
+        "Tax ID / National ID", max_length=30, blank=True
     )
     occupation = models.CharField(max_length=100, blank=True)
     photo = models.ImageField(upload_to="customer_photos/", null=True, blank=True)

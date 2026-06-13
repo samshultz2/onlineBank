@@ -30,7 +30,7 @@
         <dt>Date of birth</dt><dd>{{ profile.date_of_birth|default:"—" }}</dd>
         <dt>Gender</dt><dd>{{ profile.get_gender_display|default:"—" }}</dd>
         <dt>Address</dt><dd>{{ profile.address|default:"—" }}{% if profile.city %}, {{ profile.city }}{% endif %}{% if profile.state %}, {{ profile.state }}{% endif %}</dd>
-        <dt>National ID / BVN</dt><dd>{{ profile.national_id_number|default:"—" }}</dd>
+        <dt>Tax ID / National ID</dt><dd>{{ profile.national_id_number|default:"—" }}</dd>
         <dt>Occupation</dt><dd>{{ profile.occupation|default:"—" }}</dd>
         <dt>Next of kin</dt><dd>{{ profile.next_of_kin_name|default:"—" }} {% if profile.next_of_kin_phone %}({{ profile.next_of_kin_phone }}){% endif %}</dd>
         <dt>Joined</dt><dd>{{ customer.date_joined|date:"d M Y H:i" }}</dd>

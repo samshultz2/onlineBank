@@ -29,7 +29,7 @@ class CustomerCreateForm(StyledFormMixin, forms.Form):
     city = forms.CharField(max_length=100, required=False)
     state = forms.CharField(max_length=100, required=False)
     national_id_number = forms.CharField(
-        label="National ID / Tax number", max_length=30, required=False
+        label="Tax ID / National ID", max_length=30, required=False
     )
     occupation = forms.CharField(max_length=100, required=False)
     account_type = forms.ModelChoiceField(
