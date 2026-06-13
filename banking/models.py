@@ -28,6 +28,53 @@ def generate_reference(prefix="TRX"):
     return f"{prefix}-{stamp}-{rand}"
 
 
+def _iban_check_digits(country_code, bban):
+    """Compute the two ISO 13616 (mod-97) check digits for an IBAN."""
+    rearranged = f"{bban}{country_code}00"
+    numeric = "".join(
+        str(int(ch, 36)) if ch.isalpha() else ch for ch in rearranged
+    )
+    check = 98 - (int(numeric) % 97)
+    return f"{check:02d}"
+
+
+def build_iban(account_number):
+    """Build a valid IBAN from our internal account number (German layout:
+    DE + 2 check digits + 8-digit bank code + 10-digit account number)."""
+    country = settings.BANK_COUNTRY_CODE
+    bank_code = settings.BANK_CODE
+    bban = f"{bank_code}{account_number}"
+    check = _iban_check_digits(country, bban)
+    return f"{country}{check}{bban}"
+
+
+def format_iban(iban):
+    """Group an IBAN into blocks of four for display."""
+    iban = (iban or "").replace(" ", "")
+    return " ".join(iban[i:i + 4] for i in range(0, len(iban), 4))
+
+
+def normalise_iban(value):
+    return (value or "").replace(" ", "").upper()
+
+
+def iban_is_valid(value):
+    """Validate an IBAN's structure and mod-97 checksum."""
+    iban = normalise_iban(value)
+    if not iban or len(iban) < 15 or len(iban) > 34 or not iban[:2].isalpha():
+        return False
+    if not iban[2:4].isdigit():
+        return False
+    rearranged = iban[4:] + iban[:4]
+    try:
+        numeric = "".join(
+            str(int(ch, 36)) if ch.isalpha() else ch for ch in rearranged
+        )
+        return int(numeric) % 97 == 1
+    except ValueError:
+        return False
+
+
 class AccountType(models.Model):
     name = models.CharField(max_length=50, unique=True)
     code = models.CharField(max_length=10, unique=True)
@@ -53,6 +100,7 @@ class AccountType(models.Model):
 
 class BankAccount(models.Model):
     class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending approval"
         ACTIVE = "ACTIVE", "Active"
         DORMANT = "DORMANT", "Dormant"
         FROZEN = "FROZEN", "Frozen"
@@ -63,13 +111,25 @@ class BankAccount(models.Model):
     )
     account_type = models.ForeignKey(AccountType, on_delete=models.PROTECT)
     account_number = models.CharField(max_length=10, unique=True, db_index=True)
+    iban = models.CharField(max_length=34, unique=True, db_index=True, blank=True)
+    bic = models.CharField(max_length=11, blank=True)
     balance = models.DecimalField(
         max_digits=14, decimal_places=2, default=Decimal("0.00")
     )
-    currency = models.CharField(max_length=3, default="NGN")
+    currency = models.CharField(max_length=3, default="EUR")
+    # New accounts must be reviewed and approved by bank staff before use.
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.ACTIVE
+        max_length=10, choices=Status.choices, default=Status.PENDING
     )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_accounts",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.CharField(max_length=255, blank=True)
     opened_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -77,11 +137,23 @@ class BankAccount(models.Model):
         ordering = ["-opened_at"]
 
     def __str__(self):
-        return f"{self.account_number} ({self.user})"
+        return f"{self.iban or self.account_number} ({self.user})"
 
     @property
     def is_active(self):
         return self.status == self.Status.ACTIVE
+
+    @property
+    def is_pending(self):
+        return self.status == self.Status.PENDING
+
+    @property
+    def can_transact(self):
+        return self.status == self.Status.ACTIVE
+
+    @property
+    def iban_formatted(self):
+        return format_iban(self.iban)
 
     @property
     def available_balance(self):
@@ -102,6 +174,10 @@ class BankAccount(models.Model):
     def save(self, *args, **kwargs):
         if not self.account_number:
             self.account_number = generate_account_number()
+        if not self.iban:
+            self.iban = build_iban(self.account_number)
+        if not self.bic:
+            self.bic = settings.BANK_BIC
         super().save(*args, **kwargs)
 
 
@@ -180,17 +256,22 @@ class Beneficiary(models.Model):
     )
     name = models.CharField(max_length=150)
     nickname = models.CharField(max_length=50, blank=True)
-    account_number = models.CharField(max_length=10)
+    iban = models.CharField("IBAN", max_length=34)
     bank_name = models.CharField(max_length=100, default=settings.BANK_NAME)
+    bic = models.CharField("BIC / SWIFT", max_length=11, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ["user", "account_number"]
+        unique_together = ["user", "iban"]
         ordering = ["name"]
         verbose_name_plural = "beneficiaries"
 
     def __str__(self):
-        return f"{self.name} ({self.account_number})"
+        return f"{self.name} ({self.iban})"
+
+    @property
+    def iban_formatted(self):
+        return format_iban(self.iban)
 
 
 class FixedDeposit(models.Model):

@@ -3,6 +3,10 @@
 {% block title %}Fixed deposits — SecureTrust Bank{% endblock %}
 {% block page_title %}Fixed deposits{% endblock %}
 {% block content %}
+{% if not form.source_account.field.queryset %}
+<div class="banner banner-warning"><span class="banner-icon">⚠️</span>
+  <div>You have no active accounts to fund a fixed deposit from.</div></div>
+{% endif %}
 <div class="grid grid-2">
   <div class="card">
     <h2 class="card-title">Open a fixed deposit</h2>
@@ -17,16 +21,16 @@
     {% for fd in deposits %}
     <div class="card">
       <div class="flex-between">
-        <h3 class="mb-0">₦{{ fd.principal|floatformat:2|intcomma }} @ {{ fd.interest_rate }}% p.a.</h3>
+        <h3 class="mb-0">€{{ fd.principal|floatformat:2|intcomma }} @ {{ fd.interest_rate }}% p.a.</h3>
         <span class="badge badge-{{ fd.status|lower }}">{{ fd.get_status_display }}</span>
       </div>
       <dl class="dl mt-2">
         <dt>Reference</dt><dd class="mono">{{ fd.reference }}</dd>
         <dt>Tenor</dt><dd>{{ fd.tenor_days }} days ({{ fd.start_date }} → {{ fd.maturity_date }})</dd>
         {% if fd.status == "ACTIVE" %}
-          <dt>Expected payout</dt><dd>₦{{ fd.expected_payout|floatformat:2|intcomma }}</dd>
+          <dt>Expected payout</dt><dd>€{{ fd.expected_payout|floatformat:2|intcomma }}</dd>
         {% else %}
-          <dt>Paid out</dt><dd>₦{{ fd.payout_amount|floatformat:2|intcomma }} on {{ fd.closed_at|date:"d M Y" }}</dd>
+          <dt>Paid out</dt><dd>€{{ fd.payout_amount|floatformat:2|intcomma }} on {{ fd.closed_at|date:"d M Y" }}</dd>
         {% endif %}
       </dl>
       {% if fd.status == "ACTIVE" %}

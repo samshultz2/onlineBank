@@ -16,6 +16,7 @@ from .models import (
     FixedDeposit,
     Transaction,
     generate_reference,
+    normalise_iban,
 )
 
 TWO_PLACES = Decimal("0.01")
@@ -34,9 +35,23 @@ def _locked(account):
 
 
 def _require_active(account, action="transact on"):
+    """Block any money movement unless the account is fully active.
+
+    Pending (awaiting approval), frozen, dormant and closed accounts can all be
+    viewed by the customer but cannot move money."""
+    if account.status == BankAccount.Status.PENDING:
+        raise TransactionError(
+            f"Account {account.iban} is awaiting approval by the bank and cannot "
+            f"be used yet."
+        )
+    if account.status == BankAccount.Status.FROZEN:
+        raise TransactionError(
+            f"Account {account.iban} is frozen. No transactions are permitted "
+            f"while a freeze is in place — please contact the bank."
+        )
     if account.status != BankAccount.Status.ACTIVE:
         raise TransactionError(
-            f"Account {account.account_number} is {account.get_status_display().lower()}; "
+            f"Account {account.iban} is {account.get_status_display().lower()}; "
             f"cannot {action} it."
         )
 
@@ -79,23 +94,24 @@ def _check_transfer_limit(account, amount):
     if account.amount_transferred_today() + amount > limit:
         raise TransactionError(
             f"This payment exceeds the daily transfer limit of "
-            f"₦{limit:,.2f} for this account type."
+            f"€{limit:,.2f} for this account type."
         )
 
 
 @db_transaction.atomic
-def transfer(source, destination_number, amount, *, narration="", initiated_by=None):
-    """Move money between two accounts in this bank."""
+def transfer(source, destination_iban, amount, *, narration="", initiated_by=None):
+    """Make a SEPA credit transfer between two accounts in this bank."""
     amount = _quantize(amount)
     source = _locked(source)
     _require_active(source, "transfer from")
 
+    destination_iban = normalise_iban(destination_iban)
     try:
         destination = BankAccount.objects.select_for_update().get(
-            account_number=destination_number
+            iban=destination_iban
         )
     except BankAccount.DoesNotExist:
-        raise TransactionError("Destination account not found.")
+        raise TransactionError("No account was found for that IBAN.")
 
     if destination.pk == source.pk:
         raise TransactionError("You cannot transfer to the same account.")
@@ -109,29 +125,29 @@ def transfer(source, destination_number, amount, *, narration="", initiated_by=N
     debit = _post(
         source, Transaction.Direction.DEBIT, Transaction.Channel.TRANSFER, amount,
         reference=reference,
-        description=narration or f"Transfer to {receiver_name}",
+        description=narration or f"SEPA transfer to {receiver_name}",
         counterparty_name=receiver_name,
-        counterparty_account=destination.account_number,
+        counterparty_account=destination.iban,
         initiated_by=initiated_by,
     )
     _post(
         destination, Transaction.Direction.CREDIT, Transaction.Channel.TRANSFER, amount,
         reference=reference,
-        description=narration or f"Transfer from {sender_name}",
+        description=narration or f"SEPA transfer from {sender_name}",
         counterparty_name=sender_name,
-        counterparty_account=source.account_number,
+        counterparty_account=source.iban,
         initiated_by=initiated_by,
     )
 
     notify(
-        source.user, "Debit alert",
-        f"₦{amount:,.2f} was sent to {receiver_name} ({destination.account_number}). "
-        f"Ref: {reference}.",
+        source.user, "Debit notification",
+        f"€{amount:,.2f} was sent to {receiver_name} ({destination.iban}). "
+        f"Reference: {reference}.",
         level="warning",
     )
     notify(
-        destination.user, "Credit alert",
-        f"₦{amount:,.2f} was received from {sender_name}. Ref: {reference}.",
+        destination.user, "Credit notification",
+        f"€{amount:,.2f} was received from {sender_name}. Reference: {reference}.",
         level="success",
     )
     return debit
@@ -149,7 +165,7 @@ def deposit(account, amount, *, description="Cash deposit", initiated_by=None):
     )
     notify(
         account.user, "Credit alert",
-        f"₦{entry.amount:,.2f} deposit posted to {account.account_number}. "
+        f"€{entry.amount:,.2f} deposit posted to {account.iban}. "
         f"Ref: {entry.reference}.",
         level="success",
     )
@@ -168,7 +184,7 @@ def withdraw(account, amount, *, description="Cash withdrawal", initiated_by=Non
     )
     notify(
         account.user, "Debit alert",
-        f"₦{entry.amount:,.2f} withdrawn from {account.account_number}. "
+        f"€{entry.amount:,.2f} withdrawn from {account.iban}. "
         f"Ref: {entry.reference}.",
         level="warning",
     )
@@ -186,8 +202,8 @@ def adjustment(account, direction, amount, *, description, initiated_by):
     )
     notify(
         account.user, "Account adjustment",
-        f"An adjustment of ₦{entry.amount:,.2f} ({direction.lower()}) was posted "
-        f"to {account.account_number}: {description}",
+        f"An adjustment of €{entry.amount:,.2f} ({direction.lower()}) was posted "
+        f"to {account.iban}: {description}",
     )
     return entry
 
@@ -213,7 +229,7 @@ def pay_bill(account, biller, customer_reference, amount, *, initiated_by=None):
     )
     notify(
         account.user, "Bill payment successful",
-        f"₦{amount:,.2f} paid to {biller.name} ({customer_reference}). "
+        f"€{amount:,.2f} paid to {biller.name} ({customer_reference}). "
         f"Ref: {reference}.",
         level="success",
     )
@@ -244,8 +260,8 @@ def open_fixed_deposit(account, principal, tenor_days, interest_rate, *, initiat
     )
     notify(
         account.user, "Fixed deposit opened",
-        f"₦{principal:,.2f} locked for {tenor_days} days at {interest_rate}% p.a. "
-        f"Expected payout ₦{fd.expected_payout:,.2f} on {fd.maturity_date:%d %b %Y}.",
+        f"€{principal:,.2f} locked for {tenor_days} days at {interest_rate}% p.a. "
+        f"Expected payout €{fd.expected_payout:,.2f} on {fd.maturity_date:%d %b %Y}.",
         level="success",
     )
     return fd
@@ -282,8 +298,8 @@ def close_fixed_deposit(fd, *, initiated_by=None, force_break=False):
     fd.save(update_fields=["status", "payout_amount", "closed_at"])
     notify(
         fd.user, "Fixed deposit closed",
-        f"₦{payout:,.2f} from fixed deposit {fd.reference} has been credited to "
-        f"{account.account_number}.",
+        f"€{payout:,.2f} from fixed deposit {fd.reference} has been credited to "
+        f"{account.iban}.",
         level="success",
     )
     return fd
@@ -317,7 +333,59 @@ def reverse_transaction(entry, *, initiated_by, reason=""):
     entry.save(update_fields=["status", "reversed_by"])
     notify(
         account.user, "Transaction reversed",
-        f"Transaction {entry.reference} of ₦{entry.amount:,.2f} on "
-        f"{account.account_number} has been reversed.",
+        f"Transaction {entry.reference} of €{entry.amount:,.2f} on "
+        f"{account.iban} has been reversed.",
     )
     return reversal
+
+
+@db_transaction.atomic
+def set_balance(account, target_balance, *, description, initiated_by):
+    """Set an account's balance to an exact figure (admin only).
+
+    The difference is posted to the ledger as an adjustment so the change is
+    fully auditable and statements continue to reconcile."""
+    target = _quantize(target_balance)
+    if target < 0:
+        raise TransactionError("Balance cannot be negative.")
+    account = _locked(account)
+    delta = target - account.balance
+    if delta == 0:
+        raise TransactionError("The balance is already at that figure.")
+    direction = (
+        Transaction.Direction.CREDIT if delta > 0 else Transaction.Direction.DEBIT
+    )
+    entry = _post(
+        account, direction, Transaction.Channel.ADJUSTMENT, abs(delta),
+        reference=generate_reference("ADJ"),
+        description=description or "Balance correction",
+        initiated_by=initiated_by, enforce_minimum=False,
+    )
+    notify(
+        account.user, "Account adjustment",
+        f"Your balance on {account.iban} was adjusted to €{target:,.2f}: "
+        f"{description}",
+    )
+    return entry
+
+
+@db_transaction.atomic
+def approve_account(account, *, initiated_by, note=""):
+    """Approve a pending account so it can be used."""
+    account = _locked(account)
+    if account.status != BankAccount.Status.PENDING:
+        raise TransactionError("This account is not awaiting approval.")
+    account.status = BankAccount.Status.ACTIVE
+    account.approved_by = initiated_by
+    account.approved_at = timezone.now()
+    account.review_note = note
+    account.save(update_fields=[
+        "status", "approved_by", "approved_at", "review_note", "updated_at",
+    ])
+    notify(
+        account.user, "Account approved",
+        f"Good news — your account {account.iban} has passed review and is now "
+        f"active. You can begin banking right away.",
+        level="success",
+    )
+    return account

@@ -1,21 +1,41 @@
 {% extends "customer/base_app.html" %}
 {% load humanize %}
 {% block title %}{{ account.account_number }} — SecureTrust Bank{% endblock %}
-{% block page_title %}Account {{ account.account_number }}{% endblock %}
+{% block page_title %}Account{% endblock %}
 {% block content %}
+
+{% if account.status == "FROZEN" %}
+<div class="banner banner-danger"><span class="banner-icon">❄️</span>
+  <div>This account is <strong>frozen</strong>. You can view everything here, but no transactions can be made.</div></div>
+{% elif account.status == "PENDING" %}
+<div class="banner banner-warning"><span class="banner-icon">⏳</span>
+  <div>This account is <strong>awaiting approval</strong> and cannot transact yet.</div></div>
+{% endif %}
+
+<div class="card" style="background:var(--surface)">
+  <div class="flex-between">
+    <div>
+      <div class="acct-type" style="color:var(--text-muted)">{{ account.account_type.name }}</div>
+      <div class="mono" style="font-size:1.05rem;letter-spacing:.06em;margin-top:.2rem">{{ account.iban_formatted }}</div>
+      <div class="text-muted small mt-1">BIC / SWIFT: {{ account.bic }}</div>
+    </div>
+    <span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span>
+  </div>
+</div>
+
 <div class="grid grid-3 mb-2">
   <div class="stat">
     <div class="stat-label">{{ account.account_type.name }}</div>
-    <div class="stat-value">₦{{ account.balance|floatformat:2|intcomma }}</div>
+    <div class="stat-value">€{{ account.balance|floatformat:2|intcomma }}</div>
     <span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span>
   </div>
   <div class="stat stat-info">
     <div class="stat-label">Available balance</div>
-    <div class="stat-value">₦{{ account.available_balance|floatformat:2|intcomma }}</div>
+    <div class="stat-value">€{{ account.available_balance|floatformat:2|intcomma }}</div>
   </div>
   <div class="stat stat-warning">
     <div class="stat-label">Daily transfer limit</div>
-    <div class="stat-value">₦{{ account.account_type.daily_transfer_limit|floatformat:0|intcomma }}</div>
+    <div class="stat-value">€{{ account.account_type.daily_transfer_limit|floatformat:0|intcomma }}</div>
   </div>
 </div>
 
@@ -46,9 +66,9 @@
           <td class="mono small"><a href="{% url 'banking:receipt' trx.reference %}">{{ trx.reference }}</a></td>
           <td>{{ trx.description }}</td>
           <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
-            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}€{{ trx.amount|floatformat:2|intcomma }}
           </td>
-          <td class="text-right">₦{{ trx.balance_after|floatformat:2|intcomma }}</td>
+          <td class="text-right">€{{ trx.balance_after|floatformat:2|intcomma }}</td>
           <td><span class="badge badge-{{ trx.status|lower }}">{{ trx.get_status_display }}</span></td>
         </tr>
         {% empty %}

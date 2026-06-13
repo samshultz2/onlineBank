@@ -12,7 +12,7 @@
         <tr>
           <td class="mono small">{{ fd.reference }}</td>
           <td><a href="{% url 'staffportal:customer_detail' fd.user.pk %}">{{ fd.user.get_full_name|default:fd.user.email }}</a></td>
-          <td class="text-right">₦{{ fd.principal|floatformat:2|intcomma }}</td>
+          <td class="text-right">€{{ fd.principal|floatformat:2|intcomma }}</td>
           <td>{{ fd.interest_rate }}%</td>
           <td class="small">{{ fd.maturity_date }}{% if fd.is_matured and fd.status == 'ACTIVE' %} <span class="badge badge-warning">Due</span>{% endif %}</td>
           <td><span class="badge badge-{{ fd.status|lower }}">{{ fd.get_status_display }}</span></td>

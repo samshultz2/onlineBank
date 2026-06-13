@@ -83,8 +83,8 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "banking:dashboard"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Africa/Lagos"
+LANGUAGE_CODE = "en-gb"
+TIME_ZONE = "Europe/Berlin"
 USE_I18N = True
 USE_TZ = True
 
@@ -116,9 +116,21 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
-# --- Bank business rules -----------------------------------------------------
+# --- Bank business rules (European / SEPA) -----------------------------------
 BANK_NAME = "SecureTrust Bank"
-BANK_ACCOUNT_NUMBER_PREFIX = "30"   # all generated account numbers start with this
+BANK_LEGAL_NAME = "SecureTrust Bank SE"
+# IBAN / SEPA identifiers. This is a German-domiciled credit institution, so
+# IBANs are 22 characters: DE + 2 check digits + 8-digit bank code (BLZ) +
+# 10-digit account number.
+BANK_COUNTRY_CODE = "DE"
+BANK_CODE = "37040044"          # Bankleitzahl (BLZ)
+BANK_BIC = "SECTDEFFXXX"        # SWIFT/BIC
+BANK_ACCOUNT_NUMBER_PREFIX = "30"   # internal account number prefix
+
+# Currency
+CURRENCY_CODE = "EUR"
+CURRENCY_SYMBOL = "€"
+
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 15
 MAX_PIN_ATTEMPTS = 3

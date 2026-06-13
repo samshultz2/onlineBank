@@ -23,9 +23,9 @@
         <tr>
           <td><a href="{% url 'staffportal:customer_detail' loan.user.pk %}">{{ loan.user.get_full_name|default:loan.user.email }}</a></td>
           <td>{{ loan.product.name }}</td>
-          <td class="text-right">₦{{ loan.amount|floatformat:2|intcomma }}</td>
+          <td class="text-right">€{{ loan.amount|floatformat:2|intcomma }}</td>
           <td>{{ loan.tenor_months }} mo</td>
-          <td class="text-right">{% if loan.status == 'ACTIVE' %}₦{{ loan.outstanding_balance|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+          <td class="text-right">{% if loan.status == 'ACTIVE' %}€{{ loan.outstanding_balance|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
           <td><span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span></td>
           <td class="small">{{ loan.applied_at|date:"d M Y" }}</td>
           <td><a class="btn btn-sm btn-outline" href="{% url 'staffportal:loan_detail' loan.pk %}">Open</a></td>

@@ -32,7 +32,7 @@ class RegistrationForm(StyledFormMixin, UserCreationForm):
     city = forms.CharField(max_length=100)
     state = forms.CharField(max_length=100)
     national_id_number = forms.CharField(
-        label="National ID / BVN", max_length=30
+        label="National ID / Tax number", max_length=30
     )
     occupation = forms.CharField(max_length=100, required=False)
 

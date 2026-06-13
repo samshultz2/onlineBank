@@ -32,8 +32,8 @@ def disburse_loan(loan, *, initiated_by):
     ])
     notify(
         loan.user, "Loan approved and disbursed",
-        f"Your {loan.product.name} of ₦{loan.amount:,.2f} has been credited to "
-        f"{account.account_number}. Total payable: ₦{loan.total_payable:,.2f} "
+        f"Your {loan.product.name} of €{loan.amount:,.2f} has been credited to "
+        f"{account.account_number}. Total payable: €{loan.total_payable:,.2f} "
         f"over {loan.tenor_months} months.",
         level="success",
     )
@@ -75,7 +75,7 @@ def repay_loan(loan, account, amount, *, initiated_by):
                level="success")
     else:
         notify(loan.user, "Loan repayment received",
-               f"₦{amount:,.2f} applied to your {loan.product.name}. "
-               f"Outstanding balance: ₦{remaining:,.2f}.",
+               f"€{amount:,.2f} applied to your {loan.product.name}. "
+               f"Outstanding balance: €{remaining:,.2f}.",
                level="success")
     return loan

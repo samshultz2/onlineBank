@@ -39,6 +39,7 @@ from .forms import (
     LoanProductForm,
     PostingForm,
     ReversalForm,
+    SetBalanceForm,
     StaffUserForm,
     TicketReplyForm,
 )
@@ -71,6 +72,9 @@ def dashboard(request):
         kyc_status=CustomerProfile.KycStatus.PENDING,
         user__role=User.Role.CUSTOMER,
     ).count()
+    pending_accounts = BankAccount.objects.filter(
+        status=BankAccount.Status.PENDING
+    ).count()
     pending_loans = Loan.objects.filter(status=Loan.Status.PENDING).count()
     pending_cards = Card.objects.filter(status=Card.Status.REQUESTED).count()
     open_tickets = Ticket.objects.filter(
@@ -94,6 +98,7 @@ def dashboard(request):
         "todays_volume": todays_volume,
         "todays_count": todays_transactions.count(),
         "pending_kyc": pending_kyc,
+        "pending_accounts": pending_accounts,
         "pending_loans": pending_loans,
         "pending_cards": pending_cards,
         "open_tickets": open_tickets,
@@ -124,6 +129,7 @@ def customer_list(request):
             | models.Q(email__icontains=query)
             | models.Q(phone__icontains=query)
             | models.Q(bank_accounts__account_number__icontains=query)
+            | models.Q(bank_accounts__iban__icontains=query)
         ).distinct()
     if kyc:
         customers = customers.filter(profile__kyc_status=kyc)
@@ -168,19 +174,35 @@ def customer_create(request):
                 account = BankAccount.objects.create(
                     user=user, account_type=data["account_type"]
                 )
-            if data.get("opening_deposit"):
+                if data.get("approve_immediately"):
+                    account.status = BankAccount.Status.ACTIVE
+                    account.approved_by = request.user
+                    account.approved_at = timezone.now()
+                    account.review_note = "Reviewed and approved at account opening"
+                    account.save(update_fields=[
+                        "status", "approved_by", "approved_at", "review_note",
+                    ])
+            if data.get("approve_immediately") and data.get("opening_deposit"):
                 bank_services.deposit(
                     account, data["opening_deposit"],
                     description="Opening deposit",
                     initiated_by=request.user,
                 )
             log_action(request.user, "STAFF_CUSTOMER_CREATE",
-                       f"Customer {user.email}, account {account.account_number}",
+                       f"Customer {user.email}, account {account.iban} "
+                       f"({account.get_status_display()})",
                        request)
-            messages.success(
-                request,
-                f"Customer created. Account number: {account.account_number}.",
-            )
+            if account.status == BankAccount.Status.PENDING:
+                messages.success(
+                    request,
+                    f"Customer created. Account {account.iban_formatted} is "
+                    f"pending approval before it can be used.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Customer created. Account {account.iban_formatted} is active.",
+                )
             return redirect("staffportal:customer_detail", pk=user.pk)
     else:
         form = CustomerCreateForm()
@@ -285,6 +307,17 @@ def kyc_queue(request):
     })
 
 
+@staff_required()
+def account_approval_queue(request):
+    accounts = BankAccount.objects.filter(
+        status=BankAccount.Status.PENDING
+    ).select_related("user", "account_type")
+    return render(request, "staff/account_approval_queue.html", {
+        "accounts": _paginate(request, accounts),
+        "can_approve": request.user.role in MANAGER_UP,
+    })
+
+
 # --------------------------------------------------------------------------
 # Accounts & postings
 # --------------------------------------------------------------------------
@@ -296,6 +329,7 @@ def account_list(request):
     if query:
         accounts = accounts.filter(
             models.Q(account_number__icontains=query)
+            | models.Q(iban__icontains=query.replace(" ", ""))
             | models.Q(user__first_name__icontains=query)
             | models.Q(user__last_name__icontains=query)
             | models.Q(user__email__icontains=query)
@@ -319,23 +353,57 @@ def account_open(request, customer_pk):
             account = BankAccount.objects.create(
                 user=customer, account_type=form.cleaned_data["account_type"]
             )
-            if form.cleaned_data.get("opening_deposit"):
-                bank_services.deposit(
-                    account, form.cleaned_data["opening_deposit"],
-                    description="Opening deposit", initiated_by=request.user,
+            approve = form.cleaned_data.get("approve_immediately")
+            if approve:
+                account.status = BankAccount.Status.ACTIVE
+                account.approved_by = request.user
+                account.approved_at = timezone.now()
+                account.review_note = "Reviewed and approved at account opening"
+                account.save(update_fields=[
+                    "status", "approved_by", "approved_at", "review_note",
+                ])
+                if form.cleaned_data.get("opening_deposit"):
+                    bank_services.deposit(
+                        account, form.cleaned_data["opening_deposit"],
+                        description="Opening deposit", initiated_by=request.user,
+                    )
+                notify(customer, "New account opened",
+                       f"A new {account.account_type.name} account "
+                       f"({account.iban}) has been opened and activated for you.",
+                       "success")
+                messages.success(request, f"Account {account.iban_formatted} opened and active.")
+            else:
+                notify(customer, "New account opened (pending approval)",
+                       f"A new {account.account_type.name} account "
+                       f"({account.iban}) has been opened and is awaiting approval.")
+                messages.success(
+                    request,
+                    f"Account {account.iban_formatted} opened — pending approval.",
                 )
-            notify(customer, "New account opened",
-                   f"A new {account.account_type.name} account "
-                   f"({account.account_number}) has been opened for you.",
-                   "success")
             log_action(request.user, "STAFF_ACCOUNT_OPEN",
-                       f"{account.account_number} for {customer.email}", request)
-            messages.success(
-                request, f"Account {account.account_number} opened."
-            )
+                       f"{account.iban} for {customer.email} "
+                       f"({account.get_status_display()})", request)
         else:
             messages.error(request, "Could not open account. Check the form values.")
     return redirect("staffportal:customer_detail", pk=customer_pk)
+
+
+@staff_required(*MANAGER_UP)
+def account_approve(request, account_number):
+    account = get_object_or_404(BankAccount, account_number=account_number)
+    if request.method == "POST":
+        try:
+            bank_services.approve_account(
+                account, initiated_by=request.user,
+                note=request.POST.get("note", ""),
+            )
+        except TransactionError as exc:
+            messages.error(request, str(exc))
+        else:
+            log_action(request.user, "STAFF_ACCOUNT_APPROVE",
+                       f"{account.iban} for {account.user.email}", request)
+            messages.success(request, f"Account {account.iban_formatted} approved and activated.")
+    return redirect("staffportal:account_detail", account_number=account_number)
 
 
 @staff_required()
@@ -350,8 +418,37 @@ def account_detail(request, account_number):
         "transactions": _paginate(request, transactions),
         "posting_form": PostingForm(),
         "adjustment_form": AdjustmentForm(),
+        "balance_form": SetBalanceForm(initial={"target_balance": account.balance}),
         "status_form": AccountStatusForm(initial={"status": account.status}),
     })
+
+
+@staff_required(*ADMIN_ONLY)
+def account_set_balance(request, account_number):
+    account = get_object_or_404(BankAccount, account_number=account_number)
+    if request.method == "POST":
+        form = SetBalanceForm(request.POST)
+        if form.is_valid():
+            try:
+                entry = bank_services.set_balance(
+                    account,
+                    form.cleaned_data["target_balance"],
+                    description=form.cleaned_data["description"],
+                    initiated_by=request.user,
+                )
+            except TransactionError as exc:
+                messages.error(request, str(exc))
+            else:
+                log_action(request.user, "STAFF_SET_BALANCE",
+                           f"{account.iban} set to €{form.cleaned_data['target_balance']} "
+                           f"({form.cleaned_data['description']})", request)
+                messages.success(
+                    request,
+                    f"Balance updated to €{entry.balance_after:,.2f}.",
+                )
+        else:
+            messages.error(request, "Enter a target balance and a reason.")
+    return redirect("staffportal:account_detail", account_number=account_number)
 
 
 @staff_required()
@@ -378,10 +475,10 @@ def account_post(request, account_number, kind):
                 messages.error(request, str(exc))
             else:
                 log_action(request.user, f"STAFF_{kind.upper()}",
-                           f"₦{entry.amount} on {account.account_number}, "
+                           f"€{entry.amount} on {account.account_number}, "
                            f"ref {entry.reference}", request)
                 messages.success(
-                    request, f"{kind.title()} of ₦{entry.amount:,.2f} posted."
+                    request, f"{kind.title()} of €{entry.amount:,.2f} posted."
                 )
         else:
             messages.error(request, "Invalid amount.")
@@ -406,7 +503,7 @@ def account_adjust(request, account_number):
                 messages.error(request, str(exc))
             else:
                 log_action(request.user, "STAFF_ADJUSTMENT",
-                           f"{entry.direction} ₦{entry.amount} on "
+                           f"{entry.direction} €{entry.amount} on "
                            f"{account.account_number}: "
                            f"{form.cleaned_data['description']}", request)
                 messages.success(request, "Adjustment posted.")
@@ -431,12 +528,17 @@ def account_status(request, account_number):
                 account.status = new_status
                 account.save(update_fields=["status", "updated_at"])
                 reason = form.cleaned_data.get("reason", "")
+                level = "warning" if new_status == BankAccount.Status.FROZEN else "info"
                 notify(account.user, "Account status changed",
-                       f"Your account {account.account_number} is now "
+                       f"Your account {account.iban} is now "
                        f"{account.get_status_display().lower()}."
-                       + (f" Reason: {reason}" if reason else ""))
+                       + (f" Reason: {reason}" if reason else "")
+                       + (" While frozen you can still sign in and view your "
+                          "account, but no transactions are possible."
+                          if new_status == BankAccount.Status.FROZEN else ""),
+                       level=level)
                 log_action(request.user, "STAFF_ACCOUNT_STATUS",
-                           f"{account.account_number} -> {new_status}. {reason}",
+                           f"{account.iban} -> {new_status}. {reason}",
                            request)
                 messages.success(request, "Account status updated.")
     return redirect("staffportal:account_detail", account_number=account_number)
@@ -455,6 +557,7 @@ def transaction_list(request):
         transactions = transactions.filter(
             models.Q(reference__icontains=query)
             | models.Q(account__account_number__icontains=query)
+            | models.Q(account__iban__icontains=query.replace(" ", ""))
             | models.Q(description__icontains=query)
         )
     if channel:
@@ -486,7 +589,7 @@ def transaction_reverse(request, pk):
             else:
                 log_action(request.user, "STAFF_REVERSAL",
                            f"Reversed {entry.reference} "
-                           f"(₦{entry.amount} {entry.direction}) -> "
+                           f"(€{entry.amount} {entry.direction}) -> "
                            f"{reversal.reference}", request)
                 messages.success(request, "Transaction reversed.")
         else:
@@ -590,7 +693,7 @@ def loan_decide(request, pk):
                     messages.error(request, str(exc))
                 else:
                     log_action(request.user, "STAFF_LOAN_APPROVE",
-                               f"Loan #{loan.pk} ₦{loan.amount} for "
+                               f"Loan #{loan.pk} €{loan.amount} for "
                                f"{loan.user.email}", request)
                     messages.success(request, "Loan approved and disbursed.")
             else:
@@ -636,7 +739,7 @@ def loan_cash_repayment(request, pk):
                 messages.error(request, str(exc))
             else:
                 log_action(request.user, "STAFF_LOAN_REPAYMENT",
-                           f"₦{amount} cash on loan #{loan.pk}", request)
+                           f"€{amount} cash on loan #{loan.pk}", request)
                 messages.success(request, "Cash repayment recorded.")
         else:
             messages.error(request, "Invalid amount.")
@@ -749,8 +852,8 @@ def account_type_list(request):
             {
                 "pk": t.pk,
                 "cells": [t.name, t.code, f"{t.interest_rate}%",
-                          f"₦{t.minimum_balance:,.2f}",
-                          f"₦{t.daily_transfer_limit:,.2f}",
+                          f"€{t.minimum_balance:,.2f}",
+                          f"€{t.daily_transfer_limit:,.2f}",
                           "Yes" if t.is_active else "No"],
             }
             for t in AccountType.objects.all()
@@ -775,7 +878,7 @@ def loan_product_list(request):
             {
                 "pk": p.pk,
                 "cells": [p.name, f"{p.interest_rate}%",
-                          f"₦{p.min_amount:,.0f} – ₦{p.max_amount:,.0f}",
+                          f"€{p.min_amount:,.0f} – €{p.max_amount:,.0f}",
                           f"{p.min_tenor_months}–{p.max_tenor_months} months",
                           "Yes" if p.is_active else "No"],
             }

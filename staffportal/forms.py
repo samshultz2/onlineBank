@@ -29,7 +29,7 @@ class CustomerCreateForm(StyledFormMixin, forms.Form):
     city = forms.CharField(max_length=100, required=False)
     state = forms.CharField(max_length=100, required=False)
     national_id_number = forms.CharField(
-        label="National ID / BVN", max_length=30, required=False
+        label="National ID / Tax number", max_length=30, required=False
     )
     occupation = forms.CharField(max_length=100, required=False)
     account_type = forms.ModelChoiceField(
@@ -37,12 +37,18 @@ class CustomerCreateForm(StyledFormMixin, forms.Form):
     )
     opening_deposit = forms.DecimalField(
         min_value=Decimal("0.00"), max_digits=14, decimal_places=2,
-        required=False, initial=Decimal("0.00"),
+        required=False, initial=Decimal("0.00"), label="Opening deposit (€)",
         widget=forms.NumberInput(attrs={"step": "0.01"}),
+        help_text="Only applied if the account is approved immediately.",
     )
     mark_kyc_verified = forms.BooleanField(
         required=False, initial=True,
         label="Mark KYC as verified (documents sighted in branch)",
+    )
+    approve_immediately = forms.BooleanField(
+        required=False, initial=True,
+        label="Approve account immediately (reviewed in branch)",
+        help_text="Untick to leave the account pending approval.",
     )
 
     def clean_email(self):
@@ -90,8 +96,12 @@ class AccountOpenForm(StyledFormMixin, forms.Form):
     )
     opening_deposit = forms.DecimalField(
         min_value=Decimal("0.00"), max_digits=14, decimal_places=2,
-        required=False, initial=Decimal("0.00"),
+        required=False, initial=Decimal("0.00"), label="Opening deposit (€)",
         widget=forms.NumberInput(attrs={"step": "0.01"}),
+    )
+    approve_immediately = forms.BooleanField(
+        required=False, initial=True,
+        label="Approve immediately (otherwise pending approval)",
     )
 
 
@@ -115,6 +125,18 @@ class AdjustmentForm(StyledFormMixin, forms.Form):
     )
     description = forms.CharField(
         max_length=255, help_text="Reason for the adjustment (required for audit)."
+    )
+
+
+class SetBalanceForm(StyledFormMixin, forms.Form):
+    target_balance = forms.DecimalField(
+        min_value=Decimal("0.00"), max_digits=14, decimal_places=2,
+        label="New balance (€)",
+        widget=forms.NumberInput(attrs={"step": "0.01"}),
+    )
+    description = forms.CharField(
+        max_length=255, label="Reason",
+        help_text="Recorded on the ledger and shown in the audit trail.",
     )
 
 

@@ -7,13 +7,15 @@
   {% for account in accounts %}
   <div class="acct-card">
     <div class="acct-type">{{ account.account_type.name }} · {{ account.get_status_display }}</div>
-    <div class="acct-number">{{ account.account_number }}</div>
-    <div class="acct-balance">₦{{ account.balance|floatformat:2|intcomma }}</div>
-    <div class="flex-between">
-      <span class="small">Available: ₦{{ account.available_balance|floatformat:2|intcomma }}</span>
+    <div class="acct-number">{{ account.iban_formatted }}</div>
+    <div class="acct-balance">€{{ account.balance|floatformat:2|intcomma }}</div>
+    <div class="flex-between" style="position:relative;z-index:1">
+      <span class="small">BIC: {{ account.bic }}</span>
       <a href="{% url 'banking:account_detail' account.account_number %}">Statement →</a>
     </div>
   </div>
+  {% if account.status == "FROZEN" %}<p class="small" style="color:var(--danger);margin:-.6rem 0 1rem">❄️ Frozen — viewing only, transactions disabled.</p>
+  {% elif account.status == "PENDING" %}<p class="small" style="color:var(--warning);margin:-.6rem 0 1rem">⏳ Awaiting approval.</p>{% endif %}
   {% empty %}
   <div class="card empty-state">No accounts yet.</div>
   {% endfor %}

@@ -42,8 +42,8 @@ class LoanApplicationForm(StyledFormMixin, forms.Form):
             if amount < product.min_amount or amount > product.max_amount:
                 self.add_error(
                     "amount",
-                    f"Amount must be between ₦{product.min_amount:,.2f} and "
-                    f"₦{product.max_amount:,.2f} for this product.",
+                    f"Amount must be between €{product.min_amount:,.2f} and "
+                    f"€{product.max_amount:,.2f} for this product.",
                 )
         if product and tenor:
             if tenor < product.min_tenor_months or tenor > product.max_tenor_months:
@@ -73,7 +73,7 @@ class RepaymentForm(StyledFormMixin, forms.Form):
             status=BankAccount.Status.ACTIVE
         )
         self.fields["account"].label_from_instance = (
-            lambda a: f"{a.account_number} (₦{a.balance:,.2f})"
+            lambda a: f"{a.account_number} (€{a.balance:,.2f})"
         )
 
 
@@ -111,7 +111,7 @@ def apply_for_loan(request):
                 purpose=form.cleaned_data["purpose"],
             )
             log_action(request.user, "LOAN_APPLY",
-                       f"{loan.product} for ₦{loan.amount}", request)
+                       f"{loan.product} for €{loan.amount}", request)
             messages.success(
                 request,
                 "Application submitted. You will be notified once it is reviewed.",
@@ -156,7 +156,7 @@ def repay_loan(request, pk):
                 messages.error(request, str(exc))
             else:
                 log_action(request.user, "LOAN_REPAY",
-                           f"₦{form.cleaned_data['amount']} on loan #{loan.pk}",
+                           f"€{form.cleaned_data['amount']} on loan #{loan.pk}",
                            request)
                 messages.success(request, "Repayment successful.")
     else:

@@ -16,16 +16,21 @@
   </div>
   <div class="stat">
     <div class="stat-label">Total deposits held</div>
-    <div class="stat-value">₦{{ total_deposits|floatformat:0|intcomma }}</div>
+    <div class="stat-value">€{{ total_deposits|floatformat:0|intcomma }}</div>
   </div>
   <div class="stat stat-info">
     <div class="stat-label">Today's volume</div>
-    <div class="stat-value">₦{{ todays_volume|floatformat:0|intcomma }}</div>
+    <div class="stat-value">€{{ todays_volume|floatformat:0|intcomma }}</div>
     <span class="text-muted small">{{ todays_count }} transaction{{ todays_count|pluralize }}</span>
   </div>
 </div>
 
 <div class="grid grid-4 mb-2">
+  <div class="stat stat-warning">
+    <div class="stat-label">Accounts to approve</div>
+    <div class="stat-value">{{ pending_accounts }}</div>
+    <a href="{% url 'staffportal:account_approval_queue' %}">Review →</a>
+  </div>
   <div class="stat stat-warning">
     <div class="stat-label">Pending KYC</div>
     <div class="stat-value">{{ pending_kyc }}</div>
@@ -67,7 +72,7 @@
             <td><a href="{% url 'staffportal:account_detail' trx.account.account_number %}" class="mono small">{{ trx.account.account_number }}</a></td>
             <td class="small">{{ trx.description|truncatechars:32 }}</td>
             <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
-              {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+              {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}€{{ trx.amount|floatformat:2|intcomma }}
             </td>
           </tr>
           {% empty %}

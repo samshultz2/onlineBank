@@ -11,7 +11,8 @@ from loans import services as loan_services
 from loans.models import Loan, LoanProduct
 
 
-def make_customer(email, balance=Decimal("0.00"), account_type=None):
+def make_customer(email, balance=Decimal("0.00"), account_type=None,
+                  status=BankAccount.Status.ACTIVE):
     user = User.objects.create_user(
         email=email, password="Str0ngPass!23",
         first_name="Test", last_name="Customer",
@@ -20,9 +21,8 @@ def make_customer(email, balance=Decimal("0.00"), account_type=None):
     profile.set_pin("1234")
     account_type = account_type or AccountType.objects.first()
     account = BankAccount.objects.create(user=user, account_type=account_type)
-    if balance:
-        BankAccount.objects.filter(pk=account.pk).update(balance=balance)
-        account.refresh_from_db()
+    BankAccount.objects.filter(pk=account.pk).update(balance=balance, status=status)
+    account.refresh_from_db()
     return user, account
 
 
@@ -44,7 +44,7 @@ class TransferTests(BaseBankTest):
 
     def test_successful_transfer_moves_money_and_writes_ledger(self):
         services.transfer(
-            self.alice_acct, self.bob_acct.account_number, Decimal("2500.00"),
+            self.alice_acct, self.bob_acct.iban, Decimal("2500.00"),
             narration="Rent", initiated_by=self.alice,
         )
         self.alice_acct.refresh_from_db()
@@ -63,7 +63,7 @@ class TransferTests(BaseBankTest):
     def test_insufficient_funds_rejected_and_nothing_posted(self):
         with self.assertRaises(TransactionError):
             services.transfer(
-                self.alice_acct, self.bob_acct.account_number, Decimal("10000.01"),
+                self.alice_acct, self.bob_acct.iban, Decimal("10000.01"),
             )
         self.alice_acct.refresh_from_db()
         self.assertEqual(self.alice_acct.balance, Decimal("10000.00"))
@@ -72,7 +72,7 @@ class TransferTests(BaseBankTest):
     def test_transfer_to_self_rejected(self):
         with self.assertRaises(TransactionError):
             services.transfer(
-                self.alice_acct, self.alice_acct.account_number, Decimal("100.00"),
+                self.alice_acct, self.alice_acct.iban, Decimal("100.00"),
             )
 
     def test_transfer_to_unknown_account_rejected(self):
@@ -84,7 +84,7 @@ class TransferTests(BaseBankTest):
         self.bob_acct.save()
         with self.assertRaises(TransactionError):
             services.transfer(
-                self.alice_acct, self.bob_acct.account_number, Decimal("100.00"),
+                self.alice_acct, self.bob_acct.iban, Decimal("100.00"),
             )
 
     def test_daily_transfer_limit_enforced(self):
@@ -94,9 +94,9 @@ class TransferTests(BaseBankTest):
         carol, carol_acct = make_customer(
             "carol@test.com", Decimal("50000.00"), account_type=limited
         )
-        services.transfer(carol_acct, self.bob_acct.account_number, Decimal("800.00"))
+        services.transfer(carol_acct, self.bob_acct.iban, Decimal("800.00"))
         with self.assertRaises(TransactionError):
-            services.transfer(carol_acct, self.bob_acct.account_number, Decimal("300.00"))
+            services.transfer(carol_acct, self.bob_acct.iban, Decimal("300.00"))
 
     def test_minimum_balance_protected(self):
         protected = AccountType.objects.create(
@@ -107,8 +107,8 @@ class TransferTests(BaseBankTest):
             "dave@test.com", Decimal("1500.00"), account_type=protected
         )
         with self.assertRaises(TransactionError):
-            services.transfer(dave_acct, self.bob_acct.account_number, Decimal("600.00"))
-        services.transfer(dave_acct, self.bob_acct.account_number, Decimal("500.00"))
+            services.transfer(dave_acct, self.bob_acct.iban, Decimal("600.00"))
+        services.transfer(dave_acct, self.bob_acct.iban, Decimal("500.00"))
 
 
 class PostingTests(BaseBankTest):
@@ -255,7 +255,7 @@ class ViewSecurityTests(BaseBankTest):
         self.client.login(username="sec@test.com", password="Str0ngPass!23")
         response = self.client.post(reverse("banking:transfer"), {
             "source_account": self.account.pk,
-            "destination_account": self.other_acct.account_number,
+            "destination_account": self.other_acct.iban,
             "amount": "100.00",
             "narration": "",
             "pin": "9999",
@@ -268,7 +268,7 @@ class ViewSecurityTests(BaseBankTest):
         self.client.login(username="sec@test.com", password="Str0ngPass!23")
         response = self.client.post(reverse("banking:transfer"), {
             "source_account": self.account.pk,
-            "destination_account": self.other_acct.account_number,
+            "destination_account": self.other_acct.iban,
             "amount": "100.00",
             "narration": "test",
             "pin": "1234",
@@ -287,3 +287,129 @@ class PinLockoutTests(BaseBankTest):
         # Correct PIN no longer works while locked.
         self.assertTrue(profile.pin_is_locked)
         self.assertFalse(profile.verify_pin("1234"))
+
+
+class IbanTests(BaseBankTest):
+    def test_generated_iban_is_valid_and_consistent(self):
+        from banking.models import build_iban, iban_is_valid
+
+        _, account = make_customer("iban@test.com")
+        self.assertTrue(account.iban.startswith("DE"))
+        self.assertEqual(len(account.iban), 22)
+        self.assertTrue(iban_is_valid(account.iban))
+        self.assertEqual(account.iban, build_iban(account.account_number))
+        self.assertEqual(account.bic, "SECTDEFFXXX")
+
+    def test_invalid_ibans_rejected(self):
+        from banking.models import iban_is_valid
+
+        self.assertFalse(iban_is_valid("DE00 0000"))
+        self.assertFalse(iban_is_valid("XX1234567890"))
+        self.assertFalse(iban_is_valid(""))
+
+
+class AccountStatusGateTests(BaseBankTest):
+    """Pending and frozen accounts can be viewed but never transacted on."""
+
+    def setUp(self):
+        self.user, self.account = make_customer("gate@test.com", Decimal("5000.00"))
+        self.other, self.other_acct = make_customer("payee@test.com")
+        self.teller = User.objects.create_user(
+            email="t@bank.com", password="Str0ngPass!23",
+            role=User.Role.TELLER, is_staff=True,
+        )
+
+    def test_pending_account_cannot_transfer(self):
+        self.account.status = BankAccount.Status.PENDING
+        self.account.save()
+        with self.assertRaises(TransactionError):
+            services.transfer(self.account, self.other_acct.iban, Decimal("10.00"))
+
+    def test_frozen_account_blocks_all_money_movement(self):
+        self.account.status = BankAccount.Status.FROZEN
+        self.account.save()
+        with self.assertRaises(TransactionError):
+            services.transfer(self.account, self.other_acct.iban, Decimal("10.00"))
+        with self.assertRaises(TransactionError):
+            services.withdraw(self.account, Decimal("10.00"), initiated_by=self.teller)
+        with self.assertRaises(TransactionError):
+            services.deposit(self.account, Decimal("10.00"), initiated_by=self.teller)
+        # Balance untouched
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("5000.00"))
+
+    def test_frozen_customer_can_still_log_in_and_view_account(self):
+        self.account.status = BankAccount.Status.FROZEN
+        self.account.save()
+        self.client.login(username="gate@test.com", password="Str0ngPass!23")
+        self.assertEqual(self.client.get(reverse("banking:dashboard")).status_code, 200)
+        detail = self.client.get(
+            reverse("banking:account_detail", args=[self.account.account_number])
+        )
+        self.assertEqual(detail.status_code, 200)
+
+
+class AccountApprovalTests(BaseBankTest):
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            email="mgr@bank.com", password="Str0ngPass!23",
+            role=User.Role.MANAGER, is_staff=True,
+        )
+
+    def test_new_accounts_are_pending_by_default(self):
+        _, account = make_customer("new@test.com", status=BankAccount.Status.PENDING)
+        self.assertEqual(account.status, BankAccount.Status.PENDING)
+        self.assertFalse(account.can_transact)
+
+    def test_approval_activates_account(self):
+        _, account = make_customer("appr@test.com", status=BankAccount.Status.PENDING)
+        services.approve_account(account, initiated_by=self.manager)
+        account.refresh_from_db()
+        self.assertEqual(account.status, BankAccount.Status.ACTIVE)
+        self.assertEqual(account.approved_by, self.manager)
+        self.assertTrue(account.can_transact)
+
+    def test_double_approval_rejected(self):
+        _, account = make_customer("appr2@test.com", status=BankAccount.Status.PENDING)
+        services.approve_account(account, initiated_by=self.manager)
+        with self.assertRaises(TransactionError):
+            services.approve_account(account, initiated_by=self.manager)
+
+
+class SetBalanceTests(BaseBankTest):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="adm@bank.com", password="Str0ngPass!23",
+            role=User.Role.ADMIN, is_staff=True, is_superuser=True,
+        )
+        self.user, self.account = make_customer("bal@test.com", Decimal("1000.00"))
+
+    def test_set_balance_up_and_down_posts_adjustment(self):
+        services.set_balance(self.account, Decimal("2500.00"),
+                             description="Promo credit", initiated_by=self.admin)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("2500.00"))
+        entry = self.account.transactions.first()
+        self.assertEqual(entry.direction, Transaction.Direction.CREDIT)
+        self.assertEqual(entry.amount, Decimal("1500.00"))
+
+        services.set_balance(self.account, Decimal("100.00"),
+                             description="Correction", initiated_by=self.admin)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("100.00"))
+
+    def test_set_same_balance_rejected(self):
+        with self.assertRaises(TransactionError):
+            services.set_balance(self.account, Decimal("1000.00"),
+                                 description="noop", initiated_by=self.admin)
+
+    def test_admin_can_set_balance_via_view(self):
+        self.client.login(username="adm@bank.com", password="Str0ngPass!23")
+        response = self.client.post(
+            reverse("staffportal:account_set_balance",
+                    args=[self.account.account_number]),
+            {"target_balance": "9999.00", "description": "Manual top-up"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("9999.00"))

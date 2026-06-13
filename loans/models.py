@@ -112,4 +112,4 @@ class LoanRepayment(models.Model):
         ordering = ["-paid_at"]
 
     def __str__(self):
-        return f"₦{self.amount} on {self.loan}"
+        return f"€{self.amount} on {self.loan}"

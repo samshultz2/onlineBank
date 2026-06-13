@@ -1,14 +1,16 @@
 # SecureTrust Bank
 
-A full-featured online banking application built with **Django**, plain **HTML/CSS/JavaScript**
-(no frontend frameworks). It ships with two portals:
+A full-featured **European** online banking application built with **Django**, plain
+**HTML/CSS/JavaScript** (no frontend frameworks). Accounts use **IBANs** and **BIC/SWIFT**
+codes, payments are **SEPA** credit transfers, and balances are held in **euro (€)**.
+It ships with two portals:
 
 - **Customer internet banking** (`/`) — accounts, transfers, bills, cards, loans,
   fixed deposits, support and notifications.
 - **Staff portal** (`/staff/`) — a complete custom rewrite of the admin side.
   Every piece of bank data is created and updated here; there is no external
-  integration (no NIBSS) — tellers, managers and administrators post everything
-  manually with a full audit trail.
+  integration or external clearing house — tellers, managers and administrators
+  post everything manually with a full audit trail.
 
 ## Quick start
 
@@ -30,14 +32,25 @@ to be routed to `http://127.0.0.1:8000/staff/`.
 
 ## Features
 
+### Account lifecycle & status
+- **Every new account starts as _pending approval_** — whether opened by a customer
+  self-registering or by staff. It cannot transact until a manager/administrator
+  reviews and approves it from the staff portal (a teller can open but not approve).
+- **Frozen accounts** can still be signed into and viewed in full by the customer,
+  but **no transactions are possible** (transfers, bills, deposits, withdrawals,
+  fixed deposits and loan repayments are all blocked at the posting layer). Staff
+  freeze/unfreeze from the account page.
+- Other statuses: active, dormant, closed (closing requires a zero balance).
+
 ### Customer portal
-- **Self-registration** with KYC details; a savings account is opened instantly
-  with a generated 10-digit account number.
+- **Self-registration** with KYC details; a current account with its own IBAN is
+  created instantly and held pending approval.
 - **Transaction PIN** (hashed, 4-digit) required for every money movement;
   locks for 30 minutes after 3 wrong attempts.
 - **Dashboard** with balances, 30-day money in/out, quick actions and recent activity.
-- **Transfers** between SecureTrust accounts with live account-name lookup (AJAX),
-  daily transfer limits per account type, beneficiary saving and printable receipts.
+- **SEPA transfers** by IBAN with live beneficiary-name lookup (AJAX) and IBAN
+  checksum validation, daily transfer limits per account type, beneficiary saving
+  and printable receipts.
 - **Beneficiary management.**
 - **Bill payments** to staff-managed billers (electricity, TV, airtime…).
 - **Fixed deposits** — 30/90/180/365 days at tiered rates; early break forfeits interest.
@@ -58,8 +71,11 @@ Role-based access: **Teller → Manager → Administrator**.
   instant KYC), edit, deactivate, open extra accounts.
 - **KYC queue** — review uploaded documents, verify or reject with a reason
   (customer is notified).
-- **Accounts** — search, cash deposits/withdrawals (teller posting), manual ledger
-  adjustments (admin only), freeze/unfreeze/close, full ledger view.
+- **Account approvals** — a dedicated queue (and dashboard tile) for accounts
+  awaiting review; approve to activate.
+- **Accounts** — search by IBAN/name, cash deposits/withdrawals (teller posting),
+  manual ledger adjustments and **set-an-exact-balance** (admin only, posted as an
+  audited adjustment), one-click freeze/unfreeze, status changes, close, full ledger.
 - **Transactions** — global search/filter, one-click reversal with mandatory reason.
 - **Cards** — issue requested cards (generates number/CVV/expiry), block cards.
 - **Loans** — approve & disburse (credits the customer instantly) or reject with a
@@ -91,9 +107,10 @@ Role-based access: **Teller → Manager → Administrator**.
 python manage.py test
 ```
 
-Covers the posting engine (transfers, limits, minimum balance, reversals),
-fixed deposits, loan disbursement/repayment, PIN lockout and view-level security
-(ownership, role gates, PIN-gated transfers).
+32 tests covering the posting engine (SEPA transfers, daily limits, minimum
+balance, reversals), IBAN generation/validation, the pending-approval and freeze
+status gates, admin set-balance, fixed deposits, loan disbursement/repayment,
+PIN lockout and view-level security (ownership, role gates, PIN-gated transfers).
 
 ## Project layout
 

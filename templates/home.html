@@ -10,18 +10,20 @@
 </header>
 
 <section class="hero">
-  <h1>Banking that puts you first.</h1>
-  <p>Open an account in minutes, send money instantly, pay bills, grow your savings
-     with fixed deposits and get loans when you need them — all in one secure place.</p>
-  <a href="{% url 'accounts:register' %}" class="btn btn-accent">Open a free account</a>
+  <span class="pill">🇪🇺 SEPA payments · Your money protected up to €100,000</span>
+  <h1>Modern European banking, built around you.</h1>
+  <p>Open a current account with your own IBAN in minutes. Send SEPA transfers,
+     pay bills, grow your savings with fixed-term deposits and apply for loans —
+     all in one secure place.</p>
+  <a href="{% url 'accounts:register' %}" class="btn btn-accent btn-lg">Open your account</a>
 </section>
 
 <section class="features">
   <div class="feature">
     <div class="icon">⚡</div>
-    <h3>Instant transfers</h3>
-    <p>Send money to any SecureTrust account instantly, 24/7, with real-time
-       alerts on every transaction.</p>
+    <h3>Instant SEPA transfers</h3>
+    <p>Send money by IBAN to any account, with real-time debit and credit
+       notifications on every payment.</p>
   </div>
   <div class="feature">
     <div class="icon">🔒</div>
@@ -31,29 +33,32 @@
   </div>
   <div class="feature">
     <div class="icon">📈</div>
-    <h3>Fixed deposits</h3>
-    <p>Lock savings away for 30 to 365 days and earn up to 13% per annum.</p>
+    <h3>Fixed-term deposits</h3>
+    <p>Lock savings away from 30 to 365 days and earn a guaranteed fixed rate
+       of credit interest.</p>
   </div>
   <div class="feature">
     <div class="icon">💳</div>
     <h3>Cards on demand</h3>
-    <p>Request Verve, Visa or Mastercard debit cards and freeze them instantly
-       from your dashboard.</p>
+    <p>Order Visa, Mastercard or Verve debit cards and freeze or block them
+       instantly from your dashboard.</p>
   </div>
   <div class="feature">
     <div class="icon">🏦</div>
     <h3>Loans made simple</h3>
-    <p>Apply online, get a clear repayment plan, and track your balance as you
-       pay down.</p>
+    <p>Apply online, see a clear fixed repayment plan, and track your balance
+       as you pay it down.</p>
   </div>
   <div class="feature">
     <div class="icon">🧾</div>
     <h3>Bills &amp; statements</h3>
-    <p>Pay electricity, TV and internet bills, and download statements any time.</p>
+    <p>Pay energy, TV, internet and mobile bills, and download statements
+       whenever you need them.</p>
   </div>
 </section>
 
 <footer class="landing-footer">
-  © {% now "Y" %} SecureTrust Bank. Licensed and regulated. Deposits insured.
+  © {% now "Y" %} SecureTrust Bank SE · BIC SECTDEFFXXX. Authorised credit institution.
+  Eligible deposits protected up to €100,000 under the statutory deposit guarantee scheme.
 </footer>
 {% endblock %}

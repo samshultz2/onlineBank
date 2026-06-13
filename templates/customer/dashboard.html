@@ -17,19 +17,33 @@
     <a href="{% url 'accounts:set_pin' %}">Set it now</a> to start transacting.</div>
 {% endif %}
 
+{% for account in accounts %}
+  {% if account.status == "PENDING" %}
+  <div class="banner banner-warning"><span class="banner-icon">⏳</span>
+    <div>Your <strong>{{ account.account_type.name }}</strong> ({{ account.iban_formatted }})
+    is <strong>awaiting approval</strong>. You can view it, but transactions are disabled until our team activates it.</div>
+  </div>
+  {% elif account.status == "FROZEN" %}
+  <div class="banner banner-danger"><span class="banner-icon">❄️</span>
+    <div>Your <strong>{{ account.account_type.name }}</strong> ({{ account.iban_formatted }})
+    is <strong>frozen</strong>. You can still view it, but no transactions are possible. Please contact the bank.</div>
+  </div>
+  {% endif %}
+{% endfor %}
+
 <div class="grid grid-3 mb-2">
   <div class="stat">
     <div class="stat-label">Total balance</div>
-    <div class="stat-value">₦{{ total_balance|floatformat:2|intcomma }}</div>
+    <div class="stat-value">€{{ total_balance|floatformat:2|intcomma }}</div>
     <span class="text-muted small">{{ accounts|length }} account{{ accounts|length|pluralize }}</span>
   </div>
   <div class="stat stat-info">
     <div class="stat-label">Money in (30 days)</div>
-    <div class="stat-value amount-credit">+₦{{ money_in|floatformat:2|intcomma }}</div>
+    <div class="stat-value amount-credit">+€{{ money_in|floatformat:2|intcomma }}</div>
   </div>
   <div class="stat stat-danger">
     <div class="stat-label">Money out (30 days)</div>
-    <div class="stat-value amount-debit">−₦{{ money_out|floatformat:2|intcomma }}</div>
+    <div class="stat-value amount-debit">−€{{ money_out|floatformat:2|intcomma }}</div>
   </div>
 </div>
 
@@ -50,8 +64,8 @@
     {% for account in accounts %}
     <div class="acct-card mb-2" style="margin-bottom:1rem">
       <div class="acct-type">{{ account.account_type.name }} · {{ account.get_status_display }}</div>
-      <div class="acct-number">{{ account.account_number }}</div>
-      <div class="acct-balance">₦{{ account.balance|floatformat:2|intcomma }}</div>
+      <div class="acct-number">{{ account.iban_formatted }}</div>
+      <div class="acct-balance">€{{ account.balance|floatformat:2|intcomma }}</div>
       <a href="{% url 'banking:account_detail' account.account_number %}">View transactions →</a>
     </div>
     {% empty %}
@@ -63,7 +77,7 @@
       <h2 class="card-title">Active fixed deposits</h2>
       {% for fd in active_fds %}
         <div class="flex-between" style="padding:.4rem 0;border-bottom:1px solid var(--border)">
-          <span>₦{{ fd.principal|floatformat:2|intcomma }} @ {{ fd.interest_rate }}%</span>
+          <span>€{{ fd.principal|floatformat:2|intcomma }} @ {{ fd.interest_rate }}%</span>
           <span class="text-muted small">matures {{ fd.maturity_date }}</span>
         </div>
       {% endfor %}
@@ -75,7 +89,7 @@
       <h2 class="card-title">My loans</h2>
       {% for loan in active_loans %}
         <div class="flex-between" style="padding:.4rem 0;border-bottom:1px solid var(--border)">
-          <span><a href="{% url 'loans:detail' loan.pk %}">{{ loan.product.name }}</a> — ₦{{ loan.amount|floatformat:2|intcomma }}</span>
+          <span><a href="{% url 'loans:detail' loan.pk %}">{{ loan.product.name }}</a> — €{{ loan.amount|floatformat:2|intcomma }}</span>
           <span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span>
         </div>
       {% endfor %}
@@ -99,7 +113,7 @@
               <div class="text-muted small">{{ trx.account.account_number }}</div>
             </td>
             <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
-              {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}
+              {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}€{{ trx.amount|floatformat:2|intcomma }}
             </td>
           </tr>
           {% empty %}

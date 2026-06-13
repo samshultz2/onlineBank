@@ -38,7 +38,7 @@
           <td class="small">{{ trx.get_channel_display }}</td>
           <td class="small">{{ trx.description|truncatechars:36 }}</td>
           <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
-            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}</td>
+            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}€{{ trx.amount|floatformat:2|intcomma }}</td>
           <td><span class="badge badge-{{ trx.status|lower }}">{{ trx.get_status_display }}</span></td>
         </tr>
         {% empty %}

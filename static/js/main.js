@@ -62,14 +62,14 @@
     var lookupUrl = lookupResult.getAttribute("data-lookup-url");
     var timer = null;
     var runLookup = function () {
-      var value = destInput.value.trim();
-      if (value.length !== 10) {
+      var value = destInput.value.replace(/\s+/g, "").trim();
+      if (value.length < 15) {
         lookupResult.textContent = "";
         return;
       }
       lookupResult.textContent = "Looking up account…";
       lookupResult.style.color = "";
-      fetch(lookupUrl + "?account_number=" + encodeURIComponent(value), {
+      fetch(lookupUrl + "?iban=" + encodeURIComponent(value), {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       })
         .then(function (r) { return r.json(); })
@@ -91,7 +91,7 @@
       clearTimeout(timer);
       timer = setTimeout(runLookup, 350);
     });
-    if (destInput.value.trim().length === 10) runLookup();
+    if (destInput.value.replace(/\s+/g, "").length >= 15) runLookup();
   }
 
   /* Beneficiary picker fills the destination field */

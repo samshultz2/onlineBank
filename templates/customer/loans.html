@@ -16,8 +16,8 @@
         {% for loan in loans %}
         <tr>
           <td>{{ loan.product.name }}<div class="text-muted small">{{ loan.applied_at|date:"d M Y" }}</div></td>
-          <td class="text-right">₦{{ loan.amount|floatformat:2|intcomma }}</td>
-          <td class="text-right">{% if loan.status == 'ACTIVE' %}₦{{ loan.outstanding_balance|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+          <td class="text-right">€{{ loan.amount|floatformat:2|intcomma }}</td>
+          <td class="text-right">{% if loan.status == 'ACTIVE' %}€{{ loan.outstanding_balance|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
           <td style="min-width:120px">
             {% if loan.total_payable %}
             <div class="progress"><div class="progress-bar" style="width:{{ loan.repayment_progress }}%"></div></div>
@@ -43,7 +43,7 @@
     <p class="text-muted small">{{ product.description }}</p>
     <dl class="dl">
       <dt>Rate</dt><dd>{{ product.interest_rate }}% p.a.</dd>
-      <dt>Amount</dt><dd>₦{{ product.min_amount|floatformat:0|intcomma }} – ₦{{ product.max_amount|floatformat:0|intcomma }}</dd>
+      <dt>Amount</dt><dd>€{{ product.min_amount|floatformat:0|intcomma }} – €{{ product.max_amount|floatformat:0|intcomma }}</dd>
       <dt>Tenor</dt><dd>{{ product.min_tenor_months }}–{{ product.max_tenor_months }} months</dd>
     </dl>
   </div>

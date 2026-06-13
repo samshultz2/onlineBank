@@ -79,13 +79,13 @@
       </div>
       <div class="table-wrap mt-2">
         <table class="table">
-          <thead><tr><th>Number</th><th>Type</th><th class="text-right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>IBAN</th><th>Type</th><th class="text-right">Balance</th><th>Status</th></tr></thead>
           <tbody>
             {% for account in accounts %}
             <tr>
-              <td><a href="{% url 'staffportal:account_detail' account.account_number %}" class="mono">{{ account.account_number }}</a></td>
+              <td><a href="{% url 'staffportal:account_detail' account.account_number %}" class="mono small">{{ account.iban_formatted }}</a></td>
               <td>{{ account.account_type.name }}</td>
-              <td class="text-right">₦{{ account.balance|floatformat:2|intcomma }}</td>
+              <td class="text-right">€{{ account.balance|floatformat:2|intcomma }}</td>
               <td><span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span></td>
             </tr>
             {% empty %}
@@ -100,7 +100,7 @@
       <h2 class="card-title">Loans</h2>
       {% for loan in loans %}
         <div class="flex-between" style="padding:.35rem 0;border-bottom:1px solid var(--border)">
-          <a href="{% url 'staffportal:loan_detail' loan.pk %}">{{ loan.product.name }} — ₦{{ loan.amount|floatformat:2|intcomma }}</a>
+          <a href="{% url 'staffportal:loan_detail' loan.pk %}">{{ loan.product.name }} — €{{ loan.amount|floatformat:2|intcomma }}</a>
           <span class="badge badge-{{ loan.status|lower }}">{{ loan.get_status_display }}</span>
         </div>
       {% empty %}<p class="text-muted small">No loans.</p>{% endfor %}

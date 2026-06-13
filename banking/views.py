@@ -19,7 +19,14 @@ from .forms import (
     StatementFilterForm,
     TransferForm,
 )
-from .models import BankAccount, Beneficiary, FixedDeposit, Transaction
+from .models import (
+    BankAccount,
+    Beneficiary,
+    FixedDeposit,
+    Transaction,
+    iban_is_valid,
+    normalise_iban,
+)
 
 
 def _verify_pin_or_error(request, form):
@@ -184,11 +191,11 @@ def transfer(request):
                 if form.cleaned_data.get("save_beneficiary"):
                     Beneficiary.objects.get_or_create(
                         user=request.user,
-                        account_number=form.cleaned_data["destination_account"],
+                        iban=form.cleaned_data["destination_account"],
                         defaults={"name": entry.counterparty_name},
                     )
                 log_action(request.user, "TRANSFER",
-                           f"₦{entry.amount} to {entry.counterparty_account}, "
+                           f"€{entry.amount} to {entry.counterparty_account}, "
                            f"ref {entry.reference}", request)
                 messages.success(request, "Transfer successful.")
                 return redirect("banking:receipt", reference=entry.reference)
@@ -204,14 +211,16 @@ def transfer(request):
 
 @customer_required
 def lookup_account(request):
-    """AJAX endpoint used by the transfer form to resolve an account name."""
-    number = request.GET.get("account_number", "").strip()
-    if len(number) != 10 or not number.isdigit():
-        return JsonResponse({"found": False, "error": "Enter a 10-digit account number."})
+    """AJAX endpoint used by the transfer form to resolve a beneficiary name
+    from an IBAN."""
+    raw = request.GET.get("iban", "") or request.GET.get("account_number", "")
+    iban = normalise_iban(raw)
+    if not iban_is_valid(iban):
+        return JsonResponse({"found": False, "error": "Enter a valid IBAN."})
     try:
-        account = BankAccount.objects.select_related("user").get(account_number=number)
+        account = BankAccount.objects.select_related("user").get(iban=iban)
     except BankAccount.DoesNotExist:
-        return JsonResponse({"found": False, "error": "Account not found."})
+        return JsonResponse({"found": False, "error": "No account found for that IBAN."})
     if account.status != BankAccount.Status.ACTIVE:
         return JsonResponse({"found": False, "error": "This account cannot receive transfers."})
     return JsonResponse({
@@ -237,7 +246,7 @@ def pay_bills(request):
                 messages.error(request, str(exc))
             else:
                 log_action(request.user, "BILL_PAYMENT",
-                           f"₦{payment.amount} to {payment.biller}, "
+                           f"€{payment.amount} to {payment.biller}, "
                            f"ref {payment.reference}", request)
                 messages.success(request, "Bill payment successful.")
                 return redirect("banking:receipt", reference=payment.reference)
@@ -266,7 +275,7 @@ def fixed_deposits(request):
                 messages.error(request, str(exc))
             else:
                 log_action(request.user, "FIXED_DEPOSIT_OPEN",
-                           f"₦{fd.principal} for {fd.tenor_days} days, "
+                           f"€{fd.principal} for {fd.tenor_days} days, "
                            f"ref {fd.reference}", request)
                 messages.success(request, "Fixed deposit opened.")
                 return redirect("banking:fixed_deposits")

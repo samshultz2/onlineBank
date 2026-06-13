@@ -3,6 +3,10 @@
 {% block title %}Pay bills — SecureTrust Bank{% endblock %}
 {% block page_title %}Pay bills{% endblock %}
 {% block content %}
+{% if not form.account.field.queryset %}
+<div class="banner banner-warning"><span class="banner-icon">⚠️</span>
+  <div>You have no active accounts. Bills can only be paid from an active (not frozen or pending) account.</div></div>
+{% endif %}
 <div class="grid grid-2">
   <div class="card">
     <h2 class="card-title">New bill payment</h2>
@@ -22,7 +26,7 @@
           <tr>
             <td class="small">{{ payment.created_at|date:"d M Y" }}</td>
             <td>{{ payment.biller.name }}<div class="text-muted small">{{ payment.customer_reference }}</div></td>
-            <td class="text-right amount-debit">−₦{{ payment.amount|floatformat:2|intcomma }}</td>
+            <td class="text-right amount-debit">−€{{ payment.amount|floatformat:2|intcomma }}</td>
           </tr>
           {% empty %}
           <tr><td colspan="3" class="empty-state">No bill payments yet.</td></tr>

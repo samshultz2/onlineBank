@@ -15,14 +15,14 @@
     <h2 class="card-title">Saved beneficiaries</h2>
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>Name</th><th>Account</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>IBAN</th><th></th></tr></thead>
         <tbody>
           {% for b in beneficiaries %}
           <tr>
-            <td>{{ b.nickname|default:b.name }}<div class="text-muted small">{{ b.name }}</div></td>
-            <td class="mono">{{ b.account_number }}</td>
+            <td>{{ b.nickname|default:b.name }}<div class="text-muted small">{{ b.name }}{% if b.bic %} · {{ b.bic }}{% endif %}</div></td>
+            <td class="mono small">{{ b.iban_formatted }}</td>
             <td class="text-right">
-              <a class="btn btn-sm btn-accent" href="{% url 'banking:transfer' %}?to={{ b.account_number }}">Send</a>
+              <a class="btn btn-sm btn-accent" href="{% url 'banking:transfer' %}?to={{ b.iban }}">Send</a>
               <form method="post" action="{% url 'banking:delete_beneficiary' b.pk %}" class="inline-form" data-confirm="Remove this beneficiary?">
                 {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger">Remove</button>
               </form>

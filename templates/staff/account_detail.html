@@ -1,27 +1,56 @@
 {% extends "staff/base_staff.html" %}
 {% load humanize %}
-{% block title %}Account {{ account.account_number }} — Staff{% endblock %}
-{% block page_title %}Account {{ account.account_number }}{% endblock %}
+{% block title %}Account {{ account.iban }} — Staff{% endblock %}
+{% block page_title %}Account{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1 class="mono">{{ account.account_number }}
-    <span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span></h1>
+  <div>
+    <h1 class="mono" style="font-size:1.25rem">{{ account.iban_formatted }}
+      <span class="badge badge-{{ account.status|lower }}">{{ account.get_status_display }}</span></h1>
+    <div class="text-muted small">BIC {{ account.bic }} · internal no. {{ account.account_number }}</div>
+  </div>
   <div class="flex">
-    <button class="btn btn-accent btn-sm" data-modal-open="#deposit-modal">＋ Deposit</button>
-    <button class="btn btn-warning btn-sm" data-modal-open="#withdraw-modal">− Withdraw</button>
+    {% if account.status == 'PENDING' and request.user.role != 'TELLER' %}
+    <button class="btn btn-accent btn-sm" data-modal-open="#approve-modal">✓ Approve account</button>
+    {% endif %}
+    {% if account.status == 'ACTIVE' %}
+      <button class="btn btn-accent btn-sm" data-modal-open="#deposit-modal">＋ Deposit</button>
+      <button class="btn btn-warning btn-sm" data-modal-open="#withdraw-modal">− Withdraw</button>
+    {% endif %}
     {% if request.user.role == 'ADMIN' %}
     <button class="btn btn-sm" data-modal-open="#adjust-modal">⚖ Adjustment</button>
+    <button class="btn btn-sm btn-outline" data-modal-open="#balance-modal">＝ Set balance</button>
     {% endif %}
     {% if request.user.role != 'TELLER' %}
+      {% if account.status == 'ACTIVE' %}
+      <form method="post" action="{% url 'staffportal:account_status' account.account_number %}" class="inline-form" data-confirm="Freeze this account? The customer keeps view access but cannot transact.">
+        {% csrf_token %}<input type="hidden" name="status" value="FROZEN">
+        <button type="submit" class="btn btn-sm btn-danger">❄️ Freeze</button>
+      </form>
+      {% elif account.status == 'FROZEN' %}
+      <form method="post" action="{% url 'staffportal:account_status' account.account_number %}" class="inline-form" data-confirm="Unfreeze and re-activate this account?">
+        {% csrf_token %}<input type="hidden" name="status" value="ACTIVE">
+        <button type="submit" class="btn btn-sm btn-accent">Unfreeze</button>
+      </form>
+      {% endif %}
     <button class="btn btn-outline btn-sm" data-modal-open="#status-modal">Change status</button>
     {% endif %}
   </div>
 </div>
 
+{% if account.status == 'PENDING' %}
+<div class="banner banner-warning"><span class="banner-icon">⏳</span>
+  <div>This account is <strong>awaiting approval</strong>. It cannot transact until a manager approves it.
+  {% if request.user.role == 'TELLER' %} A manager or administrator must action this.{% endif %}</div></div>
+{% elif account.status == 'FROZEN' %}
+<div class="banner banner-danger"><span class="banner-icon">❄️</span>
+  <div>This account is <strong>frozen</strong>. The customer can sign in and view it, but no transactions are possible.</div></div>
+{% endif %}
+
 <div class="grid grid-3 mb-2">
   <div class="stat">
     <div class="stat-label">Balance</div>
-    <div class="stat-value">₦{{ account.balance|floatformat:2|intcomma }}</div>
+    <div class="stat-value">€{{ account.balance|floatformat:2|intcomma }}</div>
   </div>
   <div class="stat stat-info">
     <div class="stat-label">Customer</div>
@@ -33,7 +62,7 @@
   <div class="stat stat-warning">
     <div class="stat-label">{{ account.account_type.name }}</div>
     <div class="stat-value" style="font-size:1.1rem">Opened {{ account.opened_at|date:"d M Y" }}</div>
-    <span class="text-muted small">Min balance ₦{{ account.account_type.minimum_balance|floatformat:0|intcomma }} · Daily limit ₦{{ account.account_type.daily_transfer_limit|floatformat:0|intcomma }}</span>
+    <span class="text-muted small">Min balance €{{ account.account_type.minimum_balance|floatformat:0|intcomma }} · Daily limit €{{ account.account_type.daily_transfer_limit|floatformat:0|intcomma }}</span>
   </div>
 </div>
 
@@ -50,8 +79,8 @@
           <td class="small">{{ trx.description|truncatechars:40 }}</td>
           <td class="small text-muted">{{ trx.initiated_by.get_full_name|default:"system" }}</td>
           <td class="text-right {% if trx.direction == 'CREDIT' %}amount-credit{% else %}amount-debit{% endif %}">
-            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}₦{{ trx.amount|floatformat:2|intcomma }}</td>
-          <td class="text-right">₦{{ trx.balance_after|floatformat:2|intcomma }}</td>
+            {% if trx.direction == 'CREDIT' %}+{% else %}−{% endif %}€{{ trx.amount|floatformat:2|intcomma }}</td>
+          <td class="text-right">€{{ trx.balance_after|floatformat:2|intcomma }}</td>
           <td><span class="badge badge-{{ trx.status|lower }}">{{ trx.get_status_display }}</span></td>
           <td>
             {% if trx.status == 'COMPLETED' and request.user.role != 'TELLER' %}
@@ -59,7 +88,7 @@
             <div class="modal-backdrop" id="reverse-modal-{{ trx.pk }}">
               <div class="modal">
                 <h3>Reverse {{ trx.reference }}?</h3>
-                <p class="small text-muted">{{ trx.get_direction_display }} of ₦{{ trx.amount|floatformat:2|intcomma }} — “{{ trx.description }}”.
+                <p class="small text-muted">{{ trx.get_direction_display }} of €{{ trx.amount|floatformat:2|intcomma }} — “{{ trx.description }}”.
                    An opposite entry will be posted and the customer notified.</p>
                 <form method="post" action="{% url 'staffportal:transaction_reverse' trx.pk %}">
                   {% csrf_token %}
@@ -124,6 +153,45 @@
       {% with form=adjustment_form %}{% include "partials/_form.html" %}{% endwith %}
       <div class="flex">
         <button type="submit" class="btn">Post adjustment</button>
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if request.user.role == 'ADMIN' %}
+<div class="modal-backdrop" id="balance-modal">
+  <div class="modal">
+    <h3>Set account balance</h3>
+    <p class="small text-muted">Enter the exact balance this account should show. The difference
+       is posted to the ledger as an audited adjustment.</p>
+    <form method="post" action="{% url 'staffportal:account_set_balance' account.account_number %}">
+      {% csrf_token %}
+      {% with form=balance_form %}{% include "partials/_form.html" %}{% endwith %}
+      <div class="flex">
+        <button type="submit" class="btn btn-accent">Update balance</button>
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if account.status == 'PENDING' and request.user.role != 'TELLER' %}
+<div class="modal-backdrop" id="approve-modal">
+  <div class="modal">
+    <h3>Approve account {{ account.iban_formatted }}</h3>
+    <p class="small text-muted">Approving activates the account so the customer can begin
+       transacting. They will be notified automatically.</p>
+    <form method="post" action="{% url 'staffportal:account_approve' account.account_number %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Review note (optional)</label>
+        <input type="text" name="note" class="form-control" placeholder="e.g. Identity verified, documents on file">
+      </div>
+      <div class="flex">
+        <button type="submit" class="btn btn-accent">Approve &amp; activate</button>
         <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
       </div>
     </form>

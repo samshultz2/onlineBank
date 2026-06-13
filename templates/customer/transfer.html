@@ -2,9 +2,14 @@
 {% block title %}Transfer money — SecureTrust Bank{% endblock %}
 {% block page_title %}Transfer money{% endblock %}
 {% block content %}
+{% if not form.source_account.field.queryset %}
+<div class="banner banner-warning"><span class="banner-icon">⚠️</span>
+  <div>You have no active accounts to pay from. An account must be approved and active
+  (not frozen) before you can transfer. Check your <a href="{% url 'banking:account_list' %}">accounts</a>.</div></div>
+{% endif %}
 <div class="grid grid-2">
   <div class="card">
-    <h2 class="card-title">Send to a SecureTrust account</h2>
+    <h2 class="card-title">💶 SEPA credit transfer</h2>
     <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
@@ -29,17 +34,17 @@
   <div class="card">
     <h2 class="card-title">Saved beneficiaries</h2>
     {% for b in beneficiaries %}
-      <a href="#" data-beneficiary="{{ b.account_number }}" class="flex-between" style="padding:.55rem 0;border-bottom:1px solid var(--border)">
+      <a href="#" data-beneficiary="{{ b.iban }}" class="flex-between" style="padding:.55rem 0;border-bottom:1px solid var(--border)">
         <span>
           <strong>{{ b.nickname|default:b.name }}</strong>
           <div class="text-muted small">{{ b.name }}</div>
         </span>
-        <span class="mono small">{{ b.account_number }}</span>
+        <span class="mono small">{{ b.iban_formatted }}</span>
       </a>
     {% empty %}
       <p class="empty-state">No beneficiaries saved yet. Tick “Save as beneficiary” when you transfer, or add them on the <a href="{% url 'banking:beneficiaries' %}">beneficiaries page</a>.</p>
     {% endfor %}
-    <p class="text-muted small mt-2">Tip: click a beneficiary to fill in their account number.</p>
+    <p class="text-muted small mt-2">Tip: click a beneficiary to fill in their IBAN.</p>
   </div>
 </div>
 {% endblock %}

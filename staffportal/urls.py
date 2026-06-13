@@ -15,11 +15,14 @@ urlpatterns = [
     path("customers/<int:pk>/kyc/", views.customer_kyc_decision, name="customer_kyc_decision"),
     path("customers/<int:pk>/open-account/", views.account_open, name="account_open"),
     path("kyc-queue/", views.kyc_queue, name="kyc_queue"),
+    path("account-approvals/", views.account_approval_queue, name="account_approval_queue"),
     # Accounts
     path("accounts/", views.account_list, name="account_list"),
     path("accounts/<str:account_number>/", views.account_detail, name="account_detail"),
     path("accounts/<str:account_number>/post/<str:kind>/", views.account_post, name="account_post"),
     path("accounts/<str:account_number>/adjust/", views.account_adjust, name="account_adjust"),
+    path("accounts/<str:account_number>/set-balance/", views.account_set_balance, name="account_set_balance"),
+    path("accounts/<str:account_number>/approve/", views.account_approve, name="account_approve"),
     path("accounts/<str:account_number>/status/", views.account_status, name="account_status"),
     # Transactions
     path("transactions/", views.transaction_list, name="transaction_list"),

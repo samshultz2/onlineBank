@@ -94,8 +94,10 @@ class CustomerProfile(models.Model):
     address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    country = models.CharField(max_length=100, default="Nigeria")
-    national_id_number = models.CharField("National ID / BVN", max_length=30, blank=True)
+    country = models.CharField(max_length=100, default="Germany")
+    national_id_number = models.CharField(
+        "National ID / Tax number", max_length=30, blank=True
+    )
     occupation = models.CharField(max_length=100, blank=True)
     photo = models.ImageField(upload_to="customer_photos/", null=True, blank=True)
     id_document = models.FileField(upload_to="kyc_documents/", null=True, blank=True)

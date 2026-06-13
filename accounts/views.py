@@ -52,8 +52,9 @@ def register(request):
             log_action(user, "REGISTER", "Customer self-registration", request)
             messages.success(
                 request,
-                "Welcome! Your account has been created. "
-                "Set your transaction PIN to start banking.",
+                "Welcome! Your application has been received. Your account is "
+                "awaiting approval by our team — set your transaction PIN now so "
+                "you're ready to bank as soon as it's activated.",
             )
             return redirect("accounts:set_pin")
     else:

@@ -7,6 +7,7 @@
       <div class="nav-section">Operations</div>
       <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'staffportal:dashboard' %}">📊 Dashboard</a>
       <a class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:customer_list' %}">👤 Customers</a>
+      <a class="nav-link {% if request.resolver_match.url_name == 'account_approval_queue' %}active{% endif %}" href="{% url 'staffportal:account_approval_queue' %}">✅ Account approvals</a>
       <a class="nav-link {% if request.resolver_match.url_name == 'kyc_queue' %}active{% endif %}" href="{% url 'staffportal:kyc_queue' %}">🪪 KYC queue</a>
       <a class="nav-link {% if request.resolver_match.url_name == 'account_list' or request.resolver_match.url_name == 'account_detail' %}active{% endif %}" href="{% url 'staffportal:account_list' %}">🏦 Accounts</a>
       <a class="nav-link {% if 'transaction' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'staffportal:transaction_list' %}">🧾 Transactions</a>
