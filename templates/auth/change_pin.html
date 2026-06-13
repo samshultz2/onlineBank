@@ -2,12 +2,34 @@
 {% block title %}Change PIN — SecureTrust Bank{% endblock %}
 {% block page_title %}Change transaction PIN{% endblock %}
 {% block content %}
-<div class="card" style="max-width:480px">
-  <h2 class="card-title">Change your transaction PIN</h2>
+<div class="card" style="max-width:440px;margin:0 auto">
+  <div class="pin-hero">
+    <div class="pin-badge">🔐</div>
+    <h2 style="margin:0">Change your PIN</h2>
+  </div>
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/_form.html" %}
-    <button type="submit" class="btn btn-accent">Change PIN</button>
+    {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="pin-label">Current PIN</div>
+    <div class="pin-group" data-target="id_current_pin" data-len="4"></div>
+    <input type="hidden" name="current_pin" id="id_current_pin">
+    {% for error in form.current_pin.errors %}<div class="form-error" style="text-align:center">{{ error }}</div>{% endfor %}
+
+    <div class="pin-label">New PIN</div>
+    <div class="pin-group" data-target="id_pin" data-len="4"></div>
+    <input type="hidden" name="pin" id="id_pin">
+    {% for error in form.pin.errors %}<div class="form-error" style="text-align:center">{{ error }}</div>{% endfor %}
+
+    <div class="pin-label">Confirm new PIN</div>
+    <div class="pin-group" data-target="id_pin_confirm" data-len="4"></div>
+    <input type="hidden" name="pin_confirm" id="id_pin_confirm">
+    {% for error in form.pin_confirm.errors %}<div class="form-error" style="text-align:center">{{ error }}</div>{% endfor %}
+
+    <div style="text-align:center;margin:.5rem 0 1rem">
+      <button type="button" class="pin-toggle" data-pin-toggle>Show PIN</button>
+    </div>
+    <button type="submit" class="btn btn-accent btn-block">Change PIN</button>
   </form>
 </div>
 {% endblock %}

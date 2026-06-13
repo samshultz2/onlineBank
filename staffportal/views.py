@@ -458,18 +458,19 @@ def account_post(request, account_number, kind):
     if request.method == "POST":
         form = PostingForm(request.POST)
         if form.is_valid():
+            when = form.cleaned_data.get("value_date")
             try:
                 if kind == "deposit":
                     entry = bank_services.deposit(
                         account, form.cleaned_data["amount"],
                         description=form.cleaned_data.get("description") or "Cash deposit",
-                        initiated_by=request.user,
+                        initiated_by=request.user, when=when,
                     )
                 else:
                     entry = bank_services.withdraw(
                         account, form.cleaned_data["amount"],
                         description=form.cleaned_data.get("description") or "Cash withdrawal",
-                        initiated_by=request.user,
+                        initiated_by=request.user, when=when,
                     )
             except TransactionError as exc:
                 messages.error(request, str(exc))
@@ -498,6 +499,7 @@ def account_adjust(request, account_number):
                     form.cleaned_data["amount"],
                     description=form.cleaned_data["description"],
                     initiated_by=request.user,
+                    when=form.cleaned_data.get("value_date"),
                 )
             except TransactionError as exc:
                 messages.error(request, str(exc))

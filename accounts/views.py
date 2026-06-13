@@ -26,6 +26,13 @@ from .forms import (
 from .models import log_action
 
 
+def csrf_failure(request, reason=""):
+    """Friendly replacement for Django's default 403 CSRF page."""
+    from django.shortcuts import render as _render
+
+    return _render(request, "csrf_failure.html", {"reason": reason}, status=403)
+
+
 def home(request):
     if request.user.is_authenticated:
         if request.user.is_bank_staff:

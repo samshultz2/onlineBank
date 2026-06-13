@@ -103,11 +103,29 @@ EMAIL_BACKEND = os.environ.get(
 )
 DEFAULT_FROM_EMAIL = "no-reply@securetrustbank.com"
 
-# Sessions: expire on browser close, 15 minute idle timeout.
+# Sessions: 30 minute idle timeout (reset on every request).
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 60 * 15
+SESSION_COOKIE_AGE = 60 * 30
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+
+# --- CSRF --------------------------------------------------------------------
+# When the app is reached at anything other than http://localhost:8000 (for
+# example a phone on the LAN at http://192.168.x.x:8000, or behind an https
+# tunnel), that origin must be trusted here. Add them via the env var, e.g.
+#   DJANGO_CSRF_TRUSTED_ORIGINS="http://192.168.1.5:8000,https://myapp.example"
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if o.strip()
+]
+CSRF_COOKIE_SAMESITE = "Lax"
+# Friendly page instead of the raw 403 when a token is missing/expired.
+CSRF_FAILURE_VIEW = "accounts.views.csrf_failure"
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True

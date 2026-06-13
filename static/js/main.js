@@ -106,6 +106,61 @@
     });
   });
 
+  /* Segmented PIN entry: build boxes that write into a hidden input */
+  document.querySelectorAll(".pin-group").forEach(function (group) {
+    var len = parseInt(group.getAttribute("data-len") || "4", 10);
+    var target = document.getElementById(group.getAttribute("data-target"));
+    if (!target) return;
+    var boxes = [];
+    for (var i = 0; i < len; i++) {
+      var box = document.createElement("input");
+      box.type = "tel";
+      box.inputMode = "numeric";
+      box.maxLength = 1;
+      box.className = "pin-box";
+      box.autocomplete = "off";
+      box.setAttribute("aria-label", "PIN digit " + (i + 1));
+      group.appendChild(box);
+      boxes.push(box);
+    }
+    var sync = function () {
+      target.value = boxes.map(function (b) { return b.value; }).join("");
+    };
+    boxes.forEach(function (box, idx) {
+      box.addEventListener("input", function () {
+        box.value = box.value.replace(/\D/g, "").slice(0, 1);
+        box.classList.toggle("filled", !!box.value);
+        if (box.value && idx < len - 1) boxes[idx + 1].focus();
+        sync();
+      });
+      box.addEventListener("keydown", function (e) {
+        if (e.key === "Backspace" && !box.value && idx > 0) boxes[idx - 1].focus();
+        else if (e.key === "ArrowLeft" && idx > 0) boxes[idx - 1].focus();
+        else if (e.key === "ArrowRight" && idx < len - 1) boxes[idx + 1].focus();
+      });
+      box.addEventListener("paste", function (e) {
+        e.preventDefault();
+        var digits = (e.clipboardData || window.clipboardData).getData("text")
+          .replace(/\D/g, "").slice(0, len).split("");
+        digits.forEach(function (d, i) {
+          if (boxes[i]) { boxes[i].value = d; boxes[i].classList.add("filled"); }
+        });
+        sync();
+        (boxes[Math.min(digits.length, len - 1)] || box).focus();
+      });
+    });
+    var toggle = group.parentElement.querySelector("[data-pin-toggle]");
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        var reveal = !boxes[0].classList.contains("reveal");
+        boxes.forEach(function (b) { b.classList.toggle("reveal", reveal); });
+        toggle.textContent = reveal ? "Hide PIN" : "Show PIN";
+      });
+    }
+  });
+  var firstPinBox = document.querySelector(".pin-group .pin-box");
+  if (firstPinBox) firstPinBox.focus();
+
   /* Staff dashboard: 7-day volume bar chart on <canvas> */
   var chart = document.getElementById("volume-chart");
   if (chart && chart.getContext) {

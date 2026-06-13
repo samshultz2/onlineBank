@@ -376,6 +376,41 @@ class AccountApprovalTests(BaseBankTest):
             services.approve_account(account, initiated_by=self.manager)
 
 
+class ValueDateTests(BaseBankTest):
+    def setUp(self):
+        self.teller = User.objects.create_user(
+            email="vd@bank.com", password="Str0ngPass!23",
+            role=User.Role.TELLER, is_staff=True,
+        )
+        self.user, self.account = make_customer("vd-cust@test.com", Decimal("100.00"))
+
+    def test_deposit_records_chosen_value_date(self):
+        import datetime
+        from django.utils import timezone as tz
+        backdate = tz.make_aware(datetime.datetime(2025, 1, 15, 9, 30))
+        entry = services.deposit(self.account, Decimal("250.00"),
+                                 description="Backdated lodgement",
+                                 initiated_by=self.teller, when=backdate)
+        self.assertEqual(entry.created_at, backdate)
+        self.assertEqual(entry.description, "Backdated lodgement")
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("350.00"))
+
+    def test_staff_post_with_value_date_via_view(self):
+        self.client.login(username="vd@bank.com", password="Str0ngPass!23")
+        r = self.client.post(
+            reverse("staffportal:account_post",
+                    args=[self.account.account_number, "deposit"]),
+            {"amount": "75.00", "description": "Cash in branch",
+             "value_date": "2025-03-01T10:00"},
+        )
+        self.assertEqual(r.status_code, 302)
+        entry = self.account.transactions.latest("id")
+        self.assertEqual(entry.created_at.year, 2025)
+        self.assertEqual(entry.created_at.month, 3)
+        self.assertEqual(entry.description, "Cash in branch")
+
+
 class SetBalanceTests(BaseBankTest):
     def setUp(self):
         self.admin = User.objects.create_user(

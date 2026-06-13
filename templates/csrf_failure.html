@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Session expired — SecureTrust Bank{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <div class="auth-card" style="text-align:center">
+    <div class="auth-logo">
+      <span class="brand">Secure<span class="brand-mark">Trust</span> Bank</span>
+    </div>
+    <div style="font-size:2.6rem;line-height:1;margin:.4rem 0">🔒</div>
+    <h2>Your session timed out</h2>
+    <p class="text-muted">For your security, the page you submitted had an expired or
+       missing security token. This usually happens when a page is left open for a
+       while. Please go back, refresh, and try again.</p>
+    <div class="flex" style="justify-content:center;margin-top:1.2rem">
+      <a href="{% url 'accounts:login' %}" class="btn btn-accent">Sign in again</a>
+      <a href="{% url 'accounts:home' %}" class="btn btn-outline">Go home</a>
+    </div>
+    {% if reason %}<p class="text-muted small mt-3">Technical detail: {{ reason }}</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

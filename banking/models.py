@@ -221,7 +221,7 @@ class Transaction(models.Model):
     reference = models.CharField(max_length=40, db_index=True)
     description = models.CharField(max_length=255, blank=True)
     counterparty_name = models.CharField(max_length=150, blank=True)
-    counterparty_account = models.CharField(max_length=20, blank=True)
+    counterparty_account = models.CharField(max_length=34, blank=True)
     counterparty_bank = models.CharField(max_length=100, blank=True)
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.COMPLETED
@@ -237,7 +237,9 @@ class Transaction(models.Model):
         "self", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="reversal_of",
     )
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    # Value date of the entry. Defaults to now, but staff may set it explicitly
+    # (e.g. to record a deposit/withdrawal that took place on an earlier date).
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]

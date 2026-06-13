@@ -476,6 +476,50 @@ table.table { width: 100%; border-collapse: collapse; font-size: .91rem; backgro
 .quick-action:hover { border-color: var(--accent-400); text-decoration: none; transform: translateY(-3px); box-shadow: var(--shadow); color: var(--navy-900); }
 .quick-action .icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 11px; background: var(--accent-soft); font-size: 1.3rem; margin-bottom: .5rem; }
 
+/* ---------- Shiny PIN entry ---------- */
+.pin-hero {
+  text-align: center;
+  margin-bottom: 1.4rem;
+}
+.pin-badge {
+  width: 76px; height: 76px;
+  margin: 0 auto 1rem;
+  border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.1rem; color: #fff;
+  background: linear-gradient(135deg, var(--accent-400), var(--accent-600));
+  box-shadow: 0 14px 30px -10px rgba(12,138,95,.85), inset 0 1px 0 rgba(255,255,255,.4);
+  position: relative; overflow: hidden;
+}
+.pin-badge::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: pin-shine 3.4s ease-in-out infinite;
+}
+@keyframes pin-shine { 0%,60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.pin-label { font-weight: 600; font-size: .9rem; color: var(--text-soft); margin: 1rem 0 .1rem; text-align: center; }
+.pin-group { display: flex; gap: .55rem; justify-content: center; margin: .35rem 0; }
+.pin-box {
+  width: 52px; height: 60px;
+  text-align: center;
+  font-size: 1.55rem; font-weight: 700;
+  font-family: var(--font-display);
+  border: 1.6px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--navy-900);
+  caret-color: var(--accent-500);
+  transition: border-color .15s, box-shadow .15s, transform .1s, background .15s;
+  -webkit-text-security: disc;
+}
+.pin-box:focus { outline: none; border-color: var(--accent-500); box-shadow: var(--ring); transform: translateY(-2px); }
+.pin-box.filled { border-color: var(--accent-500); background: var(--accent-soft); }
+.pin-box.reveal { -webkit-text-security: none; }
+@media (max-width: 420px) { .pin-box { width: 44px; height: 54px; font-size: 1.3rem; } }
+.pin-toggle { background: none; border: 0; color: var(--accent-600); font-weight: 600; font-size: .85rem; cursor: pointer; }
+.pin-toggle:hover { text-decoration: underline; }
+
 /* ---------- Banners (inline notices) ---------- */
 .banner { display: flex; gap: .8rem; align-items: flex-start; padding: .95rem 1.1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); margin-bottom: 1.1rem; font-size: .92rem; }
 .banner .banner-icon { font-size: 1.2rem; line-height: 1.3; }

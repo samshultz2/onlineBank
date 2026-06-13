@@ -30,6 +30,22 @@ Default administrator (change the password immediately):
 Open `http://127.0.0.1:8000/` for the customer site, sign in with a staff account
 to be routed to `http://127.0.0.1:8000/staff/`.
 
+### Reaching the app from another device (CSRF)
+
+If you open the app at anything other than `http://localhost:8000` — for example a
+phone on your LAN at `http://192.168.1.5:8000`, or via an HTTPS tunnel — Django's
+CSRF protection needs that origin to be trusted, otherwise form submissions fail.
+Set it before starting the server:
+
+```bash
+export DJANGO_CSRF_TRUSTED_ORIGINS="http://192.168.1.5:8000"
+python manage.py runserver 0.0.0.0:8000
+```
+
+(`localhost` and `127.0.0.1` are trusted by default.) If a token does expire while
+a page is left open, the app now shows a friendly "session timed out" page with a
+link to sign in again instead of a raw 403.
+
 ## Features
 
 ### Account lifecycle & status
@@ -73,9 +89,10 @@ Role-based access: **Teller → Manager → Administrator**.
   (customer is notified).
 - **Account approvals** — a dedicated queue (and dashboard tile) for accounts
   awaiting review; approve to activate.
-- **Accounts** — search by IBAN/name, cash deposits/withdrawals (teller posting),
-  manual ledger adjustments and **set-an-exact-balance** (admin only, posted as an
-  audited adjustment), one-click freeze/unfreeze, status changes, close, full ledger.
+- **Accounts** — search by IBAN/name, cash deposits/withdrawals (teller posting)
+  **with a custom reason and value date** (back- or forward-dated), manual ledger
+  adjustments and **set-an-exact-balance** (admin only, posted as an audited
+  adjustment), one-click freeze/unfreeze, status changes, close, full ledger.
 - **Transactions** — global search/filter, one-click reversal with mandatory reason.
 - **Cards** — issue requested cards (generates number/CVV/expiry), block cards.
 - **Loans** — approve & disburse (credits the customer instantly) or reject with a

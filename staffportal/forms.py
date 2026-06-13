@@ -105,14 +105,36 @@ class AccountOpenForm(StyledFormMixin, forms.Form):
     )
 
 
+_DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S",
+                           "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+
+
+def value_date_field(label="Value date"):
+    """A datetime-local field for back- or forward-dating a posting.
+    Leaving it blank uses the current date and time."""
+    return forms.DateTimeField(
+        required=False,
+        label=label,
+        input_formats=_DATETIME_LOCAL_FORMATS,
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        ),
+        help_text="Leave blank to use the current date and time.",
+    )
+
+
 class PostingForm(StyledFormMixin, forms.Form):
-    """Cash deposit or withdrawal posted by a teller."""
+    """Cash deposit or withdrawal posted by a teller, with a reason and date."""
 
     amount = forms.DecimalField(
         min_value=Decimal("0.01"), max_digits=14, decimal_places=2,
+        label="Amount (€)",
         widget=forms.NumberInput(attrs={"step": "0.01"}),
     )
-    description = forms.CharField(max_length=255, required=False)
+    description = forms.CharField(
+        max_length=255, required=False, label="Reason / narration",
+    )
+    value_date = value_date_field()
 
 
 class AdjustmentForm(StyledFormMixin, forms.Form):
@@ -121,11 +143,14 @@ class AdjustmentForm(StyledFormMixin, forms.Form):
     )
     amount = forms.DecimalField(
         min_value=Decimal("0.01"), max_digits=14, decimal_places=2,
+        label="Amount (€)",
         widget=forms.NumberInput(attrs={"step": "0.01"}),
     )
     description = forms.CharField(
-        max_length=255, help_text="Reason for the adjustment (required for audit)."
+        max_length=255, label="Reason",
+        help_text="Reason for the adjustment (required for audit).",
     )
+    value_date = value_date_field()
 
 
 class SetBalanceForm(StyledFormMixin, forms.Form):

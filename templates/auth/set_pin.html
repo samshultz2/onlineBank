@@ -3,15 +3,32 @@
 {% block body %}
 <div class="auth-wrap">
   <div class="auth-card">
-    <div class="auth-logo">
+    <div class="pin-hero">
+      <div class="pin-badge">🔐</div>
       <span class="brand">Secure<span class="brand-mark">Trust</span> Bank</span>
-      <h2 class="mt-2">{% if has_pin %}Reset your PIN{% else %}Set your transaction PIN{% endif %}</h2>
-      <p class="text-muted small">Your 4-digit PIN authorises every transfer, bill payment and card action. Never share it with anyone — not even bank staff.</p>
+      <h2 style="margin:.6rem 0 .3rem">{% if has_pin %}Reset your PIN{% else %}Create your transaction PIN{% endif %}</h2>
+      <p class="text-muted small" style="margin:0">Your 4-digit PIN authorises every transfer, bill
+        payment and card action. Never share it — not even with bank staff.</p>
     </div>
+
     <form method="post" novalidate>
       {% csrf_token %}
-      {% include "partials/_form.html" %}
-      <button type="submit" class="btn btn-accent btn-block">Save PIN</button>
+      {% if form.non_field_errors %}<div class="alert alert-error alert-static">{{ form.non_field_errors }}</div>{% endif %}
+
+      <div class="pin-label">Choose a 4-digit PIN</div>
+      <div class="pin-group" data-target="id_pin" data-len="4"></div>
+      <input type="hidden" name="pin" id="id_pin">
+      {% for error in form.pin.errors %}<div class="form-error" style="text-align:center">{{ error }}</div>{% endfor %}
+
+      <div class="pin-label">Confirm your PIN</div>
+      <div class="pin-group" data-target="id_pin_confirm" data-len="4"></div>
+      <input type="hidden" name="pin_confirm" id="id_pin_confirm">
+      {% for error in form.pin_confirm.errors %}<div class="form-error" style="text-align:center">{{ error }}</div>{% endfor %}
+
+      <div style="text-align:center;margin:.5rem 0 1rem">
+        <button type="button" class="pin-toggle" data-pin-toggle>Show PIN</button>
+      </div>
+      <button type="submit" class="btn btn-accent btn-block btn-lg">Save PIN</button>
     </form>
     <div class="auth-footer"><a href="{% url 'banking:dashboard' %}">Skip for now</a> (you won't be able to transact)</div>
   </div>

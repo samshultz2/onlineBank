@@ -58,9 +58,12 @@ def _require_active(account, action="transact on"):
 
 def _post(account, direction, channel, amount, *, reference, description="",
           counterparty_name="", counterparty_account="", counterparty_bank="",
-          initiated_by=None, enforce_minimum=True):
+          initiated_by=None, enforce_minimum=True, when=None):
     """Apply one ledger entry to a locked account row. Must be called inside
-    an atomic block with the account already locked."""
+    an atomic block with the account already locked.
+
+    ``when`` optionally sets the entry's value date (used by staff to record a
+    posting that took place on an earlier date)."""
     amount = _quantize(amount)
     if amount <= 0:
         raise TransactionError("Amount must be greater than zero.")
@@ -74,6 +77,12 @@ def _post(account, direction, channel, amount, *, reference, description="",
         account.balance += amount
     account.save(update_fields=["balance", "updated_at"])
 
+    extra = {}
+    if when is not None:
+        if timezone.is_naive(when):
+            when = timezone.make_aware(when, timezone.get_current_timezone())
+        extra["created_at"] = when
+
     return Transaction.objects.create(
         account=account,
         direction=direction,
@@ -86,6 +95,7 @@ def _post(account, direction, channel, amount, *, reference, description="",
         counterparty_account=counterparty_account,
         counterparty_bank=counterparty_bank,
         initiated_by=initiated_by,
+        **extra,
     )
 
 
@@ -154,14 +164,14 @@ def transfer(source, destination_iban, amount, *, narration="", initiated_by=Non
 
 
 @db_transaction.atomic
-def deposit(account, amount, *, description="Cash deposit", initiated_by=None):
+def deposit(account, amount, *, description="Cash deposit", initiated_by=None, when=None):
     """Teller/manual cash deposit posted from the staff portal."""
     account = _locked(account)
     _require_active(account, "deposit into")
     entry = _post(
         account, Transaction.Direction.CREDIT, Transaction.Channel.DEPOSIT,
         amount, reference=generate_reference("DEP"), description=description,
-        initiated_by=initiated_by,
+        initiated_by=initiated_by, when=when,
     )
     notify(
         account.user, "Credit alert",
@@ -173,14 +183,14 @@ def deposit(account, amount, *, description="Cash deposit", initiated_by=None):
 
 
 @db_transaction.atomic
-def withdraw(account, amount, *, description="Cash withdrawal", initiated_by=None):
+def withdraw(account, amount, *, description="Cash withdrawal", initiated_by=None, when=None):
     """Teller/manual cash withdrawal posted from the staff portal."""
     account = _locked(account)
     _require_active(account, "withdraw from")
     entry = _post(
         account, Transaction.Direction.DEBIT, Transaction.Channel.WITHDRAWAL,
         amount, reference=generate_reference("WDL"), description=description,
-        initiated_by=initiated_by,
+        initiated_by=initiated_by, when=when,
     )
     notify(
         account.user, "Debit alert",
@@ -192,13 +202,13 @@ def withdraw(account, amount, *, description="Cash withdrawal", initiated_by=Non
 
 
 @db_transaction.atomic
-def adjustment(account, direction, amount, *, description, initiated_by):
+def adjustment(account, direction, amount, *, description, initiated_by, when=None):
     """Manual ledger adjustment (admin only) — e.g. corrections."""
     account = _locked(account)
     entry = _post(
         account, direction, Transaction.Channel.ADJUSTMENT, amount,
         reference=generate_reference("ADJ"), description=description,
-        initiated_by=initiated_by, enforce_minimum=False,
+        initiated_by=initiated_by, enforce_minimum=False, when=when,
     )
     notify(
         account.user, "Account adjustment",
