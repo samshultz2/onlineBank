@@ -187,10 +187,13 @@
       var x = pad.left + gap * i + (gap - barW) / 2;
       var barH = (values[i] / max) * (h - 14);
       var y = pad.top + (h - barH);
-      ctx.fillStyle = "#0e9f6e";
+      var grad = ctx.createLinearGradient(0, y, 0, y + barH);
+      grad.addColorStop(0, "#1fc08a");
+      grad.addColorStop(1, "#0c8a5f");
+      ctx.fillStyle = grad;
       ctx.beginPath();
       if (ctx.roundRect) {
-        ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]);
+        ctx.roundRect(x, y, barW, barH, [5, 5, 0, 0]);
         ctx.fill();
       } else {
         ctx.fillRect(x, y, barW, barH);
@@ -201,11 +204,31 @@
       if (values[i] > 0) {
         ctx.fillStyle = "#1e293b";
         ctx.fillText(
-          "₦" + Number(values[i]).toLocaleString(undefined, { maximumFractionDigits: 0 }),
+          "€" + Number(values[i]).toLocaleString(undefined, { maximumFractionDigits: 0 }),
           x + barW / 2,
           y - 4
         );
       }
     }
+  }
+
+  /* Subtle scroll-reveal for cards, stats and feature tiles */
+  var revealTargets = document.querySelectorAll(
+    ".content .card, .content .stat, .content .acct-card, .content .quick-action, .features .feature"
+  );
+  if (revealTargets.length && "IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: "0px 0px -40px 0px" });
+    revealTargets.forEach(function (el, i) {
+      el.classList.add("reveal-up");
+      el.style.transitionDelay = Math.min(i * 35, 280) + "ms";
+      io.observe(el);
+    });
   }
 })();
