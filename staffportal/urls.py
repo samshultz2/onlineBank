@@ -24,6 +24,7 @@ urlpatterns = [
     path("accounts/<str:account_number>/set-balance/", views.account_set_balance, name="account_set_balance"),
     path("accounts/<str:account_number>/approve/", views.account_approve, name="account_approve"),
     path("accounts/<str:account_number>/status/", views.account_status, name="account_status"),
+    path("accounts/<str:account_number>/populate-history/", views.account_populate_history, name="account_populate_history"),
     # Transactions
     path("transactions/", views.transaction_list, name="transaction_list"),
     path("transactions/<int:pk>/reverse/", views.transaction_reverse, name="transaction_reverse"),

@@ -37,6 +37,7 @@ from .forms import (
     KycDecisionForm,
     LoanDecisionForm,
     LoanProductForm,
+    PopulateHistoryForm,
     PostingForm,
     ReversalForm,
     SetBalanceForm,
@@ -420,6 +421,7 @@ def account_detail(request, account_number):
         "adjustment_form": AdjustmentForm(),
         "balance_form": SetBalanceForm(initial={"target_balance": account.balance}),
         "status_form": AccountStatusForm(initial={"status": account.status}),
+        "populate_form": PopulateHistoryForm(),
     })
 
 
@@ -511,6 +513,40 @@ def account_adjust(request, account_number):
                 messages.success(request, "Adjustment posted.")
         else:
             messages.error(request, "Adjustments require an amount and a reason.")
+    return redirect("staffportal:account_detail", account_number=account_number)
+
+
+@staff_required(*ADMIN_ONLY)
+def account_populate_history(request, account_number):
+    """Generate realistic backdated transactions on an account (admin only)."""
+    account = get_object_or_404(BankAccount, account_number=account_number)
+    if request.method == "POST":
+        form = PopulateHistoryForm(request.POST)
+        if form.is_valid():
+            try:
+                count = bank_services.populate_transaction_history(
+                    account,
+                    form.cleaned_data["target_balance"],
+                    months=int(form.cleaned_data["months"]),
+                    initiated_by=request.user,
+                )
+            except TransactionError as exc:
+                messages.error(request, str(exc))
+            else:
+                log_action(
+                    request.user, "STAFF_POPULATE_HISTORY",
+                    f"{account.iban}: {count} transactions generated over "
+                    f"{form.cleaned_data['months']} months, "
+                    f"target €{form.cleaned_data['target_balance']}",
+                    request,
+                )
+                messages.success(
+                    request,
+                    f"{count} transactions generated. Balance is now "
+                    f"€{account.balance:,.2f}.",
+                )
+        else:
+            messages.error(request, "Enter a valid target balance and period.")
     return redirect("staffportal:account_detail", account_number=account_number)
 
 

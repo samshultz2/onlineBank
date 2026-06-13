@@ -3,6 +3,8 @@ Posting engine: every balance movement in the bank goes through this module
 inside a database transaction with row locks, so balances and the ledger can
 never disagree.
 """
+import random
+from datetime import timedelta as dt_timedelta
 from decimal import Decimal
 
 from django.db import transaction as db_transaction
@@ -69,9 +71,10 @@ def _post(account, direction, channel, amount, *, reference, description="",
         raise TransactionError("Amount must be greater than zero.")
 
     if direction == Transaction.Direction.DEBIT:
-        floor = account.account_type.minimum_balance if enforce_minimum else Decimal("0.00")
-        if account.balance - amount < floor:
-            raise TransactionError("Insufficient funds.")
+        if enforce_minimum:
+            floor = account.account_type.minimum_balance
+            if account.balance - amount < floor:
+                raise TransactionError("Insufficient funds.")
         account.balance -= amount
     else:
         account.balance += amount
@@ -399,3 +402,161 @@ def approve_account(account, *, initiated_by, note=""):
         level="success",
     )
     return account
+
+
+@db_transaction.atomic
+def populate_transaction_history(account, target_balance, *, months=6, initiated_by):
+    """Generate realistic-looking backdated transaction history on an active account.
+
+    Posts a mix of European banking debits (rent, utilities, groceries, etc.) and
+    monthly salary credits spread across the last ``months`` months.  The salary
+    amounts are calculated so the account lands at approximately ``target_balance``
+    after all postings.
+    """
+    target = _quantize(Decimal(str(target_balance)))
+    if target < 0:
+        raise TransactionError("Target balance cannot be negative.")
+    months = int(months)
+    if not 1 <= months <= 24:
+        raise TransactionError("Period must be between 1 and 24 months.")
+
+    account = _locked(account)
+    _require_active(account, "populate history on")
+
+    rng = random.Random()
+    now = timezone.now()
+
+    DEBIT = Transaction.Direction.DEBIT
+    CREDIT = Transaction.Direction.CREDIT
+    TRANSFER = Transaction.Channel.TRANSFER
+    BILL = Transaction.Channel.BILL_PAYMENT
+    WITHDRAWAL = Transaction.Channel.WITHDRAWAL
+
+    def eur(lo, hi):
+        return Decimal(str(round(rng.uniform(lo, hi), 2)))
+
+    def when_in_period(month_idx, day_lo, day_hi):
+        base = now - dt_timedelta(days=(months - month_idx) * 30)
+        return base + dt_timedelta(
+            days=rng.randint(day_lo, min(day_hi, 29)),
+            hours=rng.randint(8, 20),
+            minutes=rng.randint(0, 59),
+        )
+
+    employers = [
+        "Siemens AG", "SAP SE", "BMW Group", "Bosch GmbH",
+        "Allianz SE", "Volkswagen AG", "Deutsche Telekom AG",
+        "Lufthansa Group", "BASF SE", "Continental AG",
+    ]
+    grocery_stores = [
+        "REWE Supermarkt", "EDEKA Markt", "Aldi Süd",
+        "Lidl", "Kaufland", "Penny Markt",
+    ]
+    cafes = ["Starbucks", "Café Einstein", "Backwerk", "Nordsee", "Subway", "BackFactory"]
+    employer = rng.choice(employers)
+
+    # Build raw debit entries (salary added later)
+    entries = []  # [(when, desc, channel, direction, amount), ...]
+
+    for m in range(months):
+        # Fixed monthly debits posted on specific days of the 30-day block
+        entries.append((when_in_period(m, 3, 4),   "Kaltmiete + Nebenkosten",         TRANSFER,   DEBIT, eur(720,  1200)))
+        entries.append((when_in_period(m, 4, 6),   "E.ON Energie GmbH",               BILL,       DEBIT, eur(75,   165)))
+        entries.append((when_in_period(m, 5, 7),   "DEVK Versicherungen",             TRANSFER,   DEBIT, eur(50,   130)))
+        entries.append((when_in_period(m, 7, 9),   "Vodafone GmbH",                   BILL,       DEBIT, eur(24,   49)))
+        entries.append((when_in_period(m, 9, 11),  "BVG Monatskarte",                 TRANSFER,   DEBIT, eur(29,   86)))
+        entries.append((when_in_period(m, 13, 15), "Netflix International B.V.",       TRANSFER,   DEBIT, eur(12.99, 17.99)))
+        entries.append((when_in_period(m, 13, 15), "Spotify AB",                       TRANSFER,   DEBIT, Decimal("9.99")))
+        entries.append((when_in_period(m, 18, 20), "Rundfunkbeitrag ARD ZDF",          TRANSFER,   DEBIT, Decimal("18.36")))
+
+        # Weekly grocery shopping (3–4 times per month)
+        for _ in range(rng.randint(3, 4)):
+            entries.append((when_in_period(m, 3, 27), rng.choice(grocery_stores), TRANSFER, DEBIT, eur(28, 115)))
+
+        # Café / restaurant (2–3 times per month)
+        for _ in range(rng.randint(2, 3)):
+            entries.append((when_in_period(m, 3, 27), rng.choice(cafes), TRANSFER, DEBIT, eur(9, 52)))
+
+        # Occasional debits (probabilistic)
+        if rng.random() < 0.75:
+            entries.append((when_in_period(m, 5, 25), "Amazon.de",                    TRANSFER,   DEBIT, eur(14, 185)))
+        if rng.random() < 0.60:
+            entries.append((when_in_period(m, 5, 25), "Bargeldauszahlung",            WITHDRAWAL, DEBIT, eur(100, 300)))
+        if rng.random() < 0.40:
+            entries.append((when_in_period(m, 5, 25), "Apotheke am Markt",            TRANSFER,   DEBIT, eur(7, 46)))
+        if rng.random() < 0.30:
+            entries.append((when_in_period(m, 5, 25), "Deutsche Bahn AG",             TRANSFER,   DEBIT, eur(29, 220)))
+        if rng.random() < 0.25:
+            entries.append((when_in_period(m, 5, 25), "Zalando SE",                   TRANSFER,   DEBIT, eur(28, 155)))
+        if rng.random() < 0.20:
+            entries.append((when_in_period(m, 5, 25), "PayPal Europe S.à r.l.",       TRANSFER,   DEBIT, eur(15, 120)))
+
+    # How much net change do we need?
+    total_debits = sum(amt for _, _, _, d, amt in entries if d == DEBIT)
+    needed_net = target - account.balance          # positive → need credits; negative → need drain
+    total_credits_needed = (total_debits + needed_net).quantize(TWO_PLACES)
+
+    if total_credits_needed > 0:
+        # Distribute as monthly salary credits arriving on day 1–2 of each period
+        base_salary = (total_credits_needed / months).quantize(TWO_PLACES)
+        running_salary = Decimal("0.00")
+
+        for m in range(months):
+            salary_when = when_in_period(m, 1, 2)
+            month_label = (now - dt_timedelta(days=(months - m) * 30)).strftime("%b %Y")
+
+            if m < months - 1:
+                jitter = eur(-0.03, 0.03) * base_salary
+                month_salary = max((base_salary + jitter).quantize(TWO_PLACES), Decimal("0.01"))
+            else:
+                month_salary = (total_credits_needed - running_salary).quantize(TWO_PLACES)
+                if month_salary <= 0:
+                    break
+
+            running_salary += month_salary
+            entries.append((
+                salary_when,
+                f"Gehaltszahlung {employer} {month_label}",
+                TRANSFER, CREDIT, month_salary,
+            ))
+
+    elif total_credits_needed < 0:
+        # Account needs to drain — trim debits to the exact amount needed
+        drain_needed = (account.balance - target).quantize(TWO_PLACES)
+        if drain_needed <= 0:
+            entries = []
+        else:
+            debit_entries = sorted(
+                [(w, desc, ch, d, amt) for w, desc, ch, d, amt in entries if d == DEBIT],
+                key=lambda x: x[0],
+            )
+            kept, running = [], Decimal("0.00")
+            for w, desc, ch, d, amt in debit_entries:
+                if running >= drain_needed:
+                    break
+                remainder = drain_needed - running
+                if amt > remainder:
+                    amt = remainder.quantize(TWO_PLACES)
+                if amt > 0:
+                    kept.append((w, desc, ch, d, amt))
+                    running += amt
+            entries = kept
+
+    # Sort chronologically; salary (day 1–2) always arrives before expenses (day 3+)
+    entries.sort(key=lambda x: x[0])
+
+    posted = 0
+    for when, desc, channel, direction, amount in entries:
+        if amount <= 0:
+            continue
+        _post(
+            account, direction, channel, amount,
+            reference=generate_reference("HST"),
+            description=desc,
+            initiated_by=initiated_by,
+            enforce_minimum=False,
+            when=when,
+        )
+        posted += 1
+
+    return posted

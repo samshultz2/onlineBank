@@ -20,6 +20,7 @@
     {% if request.user.role == 'ADMIN' %}
     <button class="btn btn-sm" data-modal-open="#adjust-modal">⚖ Adjustment</button>
     <button class="btn btn-sm btn-outline" data-modal-open="#balance-modal">＝ Set balance</button>
+    <button class="btn btn-sm btn-outline" data-modal-open="#populate-modal">⏱ Generate history</button>
     {% endif %}
     {% if request.user.role != 'TELLER' %}
       {% if account.status == 'ACTIVE' %}
@@ -171,6 +172,26 @@
       {% with form=balance_form %}{% include "partials/_form.html" %}{% endwith %}
       <div class="flex">
         <button type="submit" class="btn btn-accent">Update balance</button>
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if request.user.role == 'ADMIN' %}
+<div class="modal-backdrop" id="populate-modal">
+  <div class="modal">
+    <h3>Generate transaction history</h3>
+    <p class="small text-muted">This will post a realistic set of backdated European banking
+       transactions (salary credits, rent, utilities, groceries, etc.) spread across the chosen
+       period. The amounts are calculated so the account ends at approximately your target balance.</p>
+    <form method="post" action="{% url 'staffportal:account_populate_history' account.account_number %}"
+          data-confirm="This will create multiple backdated transactions and change the balance. Continue?">
+      {% csrf_token %}
+      {% with form=populate_form %}{% include "partials/_form.html" %}{% endwith %}
+      <div class="flex">
+        <button type="submit" class="btn btn-accent">Generate transactions</button>
         <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
       </div>
     </form>

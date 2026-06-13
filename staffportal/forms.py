@@ -257,3 +257,18 @@ class BillerForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = Biller
         fields = ("name", "category", "customer_id_label", "is_active")
+
+
+class PopulateHistoryForm(StyledFormMixin, forms.Form):
+    target_balance = forms.DecimalField(
+        min_value=Decimal("0.00"), max_digits=14, decimal_places=2,
+        label="Target balance after populating (€)",
+        widget=forms.NumberInput(attrs={"step": "0.01"}),
+        help_text="The account will land at approximately this balance once the history is generated.",
+    )
+    months = forms.ChoiceField(
+        choices=[(3, "3 months"), (6, "6 months"), (12, "12 months"), (24, "24 months")],
+        initial=6,
+        label="History period",
+        help_text="How far back the generated transactions will be spread.",
+    )
