@@ -7,6 +7,7 @@ from django.db import models
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import customer_required, pin_setup_required
 from accounts.models import log_action
@@ -360,9 +361,11 @@ def edit_beneficiary(request, pk):
 
 
 @customer_required
+@require_POST
 def delete_beneficiary(request, pk):
     beneficiary = get_object_or_404(Beneficiary, pk=pk, user=request.user)
-    if request.method == "POST":
-        beneficiary.delete()
-        messages.success(request, "Beneficiary removed.")
+    log_action(request.user, "BENEFICIARY_DELETE",
+               f"Removed {beneficiary.name} ({beneficiary.iban})", request)
+    beneficiary.delete()
+    messages.success(request, "Beneficiary removed.")
     return redirect("banking:beneficiaries")

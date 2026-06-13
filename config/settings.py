@@ -132,6 +132,8 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
+_INSECURE_SECRET_KEY = "django-insecure-change-me-in-production-9f8a7b6c5d4e3f2a1b0c"
+
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
@@ -139,6 +141,27 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+    # Refuse to run a production (DEBUG=0) instance with insecure defaults:
+    # the placeholder SECRET_KEY, a wildcard host, or a console email backend
+    # would all be serious problems for a live bank.
+    from django.core.exceptions import ImproperlyConfigured
+
+    if SECRET_KEY == _INSECURE_SECRET_KEY:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY must be set to a unique secret value when "
+            "DEBUG is off."
+        )
+    if "*" in ALLOWED_HOSTS:
+        raise ImproperlyConfigured(
+            "ALLOWED_HOSTS must not contain '*' in production; set "
+            "DJANGO_ALLOWED_HOSTS to your real host names."
+        )
+    if EMAIL_BACKEND.endswith("console.EmailBackend"):
+        raise ImproperlyConfigured(
+            "Set DJANGO_EMAIL_BACKEND to a real mail backend in production; "
+            "the console backend does not deliver email."
+        )
 
 # --- Bank business rules (European / SEPA) -----------------------------------
 BANK_NAME = "SecureTrust Bank"
